@@ -1,0 +1,106 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BREAKROOM Login</title>
+    <link rel="stylesheet" href="{% static 'billing/style.css' %}">
+    <style>
+        /* Login-specific styling */
+        .login-wrapper {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-box {
+            background: #0f0f0f;
+            padding: 40px;
+            width: 360px;
+            border-radius: 14px;
+            box-shadow: 0 0 30px rgba(245, 196, 0, 0.15);
+            text-align: center;
+        }
+
+        .login-box h1 {
+            color: #f5c400;
+            margin-bottom: 5px;
+            letter-spacing: 2px;
+        }
+
+        .login-box p {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-bottom: 25px;
+        }
+
+        .login-box input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background: #151515;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+        }
+
+        .login-box input:focus {
+            outline: none;
+            border-color: #f5c400;
+        }
+
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #f5c400, #ffdf5e);
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #000;
+            margin-top: 10px;
+        }
+
+        .login-box button:hover {
+            transform: scale(1.05);
+        }
+
+        .error {
+            background: #2a0000;
+            color: #ff6b6b;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-wrapper">
+    <div class="login-box">
+
+        <h1>BREAKROOM</h1>
+        <p>Play • Eat • Repeat</p>
+
+        {% if form.errors %}
+            <div class="error">
+                Invalid username or password
+            </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+
+            <input type="text" name="username" placeholder="Username" required>
+            <input type="password" name="password" placeholder="Password" required>
+
+            <button type="submit">Login</button>
+        </form>
+
+    </div>
+</div>
+
+</body>
+</html>

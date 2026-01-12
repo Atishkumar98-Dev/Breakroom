@@ -1,0 +1,117 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BREAKROOM POS</title>
+    <link rel="stylesheet" href="{% static 'billing/style.css' %}">
+</head>
+<body>
+
+<h1>BREAKROOM</h1>
+<p>Play • Eat • Repeat</p>
+
+<h3>Current Bill: {{ bill.bill_no }}</h3>
+
+<!-- ================= GAMING ZONE ================= -->
+<form method="post">
+    {% csrf_token %}
+    <h2>🎮 Gaming Zone</h2>
+
+    <select name="item" required>
+        <option value="">Select Game</option>
+        <option>Pool Table</option>
+        <option>PS5 – FIFA</option>
+        <option>PS5 – GTA</option>
+        <option>PS5 – Cricket</option>
+        <option>PS5 – Call of Duty</option>
+    </select>
+
+    <input type="number" step="0.5" name="qty" placeholder="Hours" required>
+    <input type="number" name="rate" placeholder="Rate / Hour" required>
+
+    <button type="submit">➕ Add Gaming</button>
+</form>
+
+<!-- ================= FOOD ZONE ================= -->
+<form method="post">
+    {% csrf_token %}
+    <h2>🍔 Food Zone</h2>
+
+    <select name="item" required>
+        <option value="">Select Food</option>
+        <option>Burger</option>
+        <option>Cheese Burger</option>
+        <option>Veg Burger</option>
+        <option>French Fries</option>
+        <option>Peri Peri Fries</option>
+        <option>Pizza</option>
+        <option>Sandwich</option>
+        <option>Garlic Bread</option>
+        <option>Nachos</option>
+        <option>Popcorn</option>
+        <option>Cold Drink</option>
+        <option>Milkshake</option>
+        <option>Cold Coffee</option>
+        <option>Tea</option>
+        <option>Brownie</option>
+        <option>Ice Cream</option>
+    </select>
+
+    <input type="number" name="qty" placeholder="Quantity" required>
+    <input type="number" name="rate" placeholder="Price" required>
+
+    <button type="submit">➕ Add Food</button>
+</form>
+
+<hr>
+
+<!-- ================= BILL ITEMS ================= -->
+<h2>🧾 Bill Items</h2>
+
+{% if items %}
+<ul>
+{% for i in items %}
+    <li>
+        <strong>{{ i.item_name }}</strong>
+        — {{ i.quantity }} × {{ i.rate }}
+        = ₹{{ i.total }}
+
+        <a href="{% url 'billing:remove_item' i.id %}">❌</a>
+
+        <form method="post" action="{% url 'billing:edit_item' i.id %}" style="display:inline;">
+            {% csrf_token %}
+            <input type="number" step="0.5" name="qty" value="{{ i.quantity }}" style="width:60px;">
+            <input type="number" name="rate" value="{{ i.rate }}" style="width:80px;">
+            <button type="submit">✏️</button>
+        </form>
+    </li>
+{% endfor %}
+</ul>
+{% else %}
+<p>No items added yet.</p>
+{% endif %}
+
+<!-- ================= TOTALS ================= -->
+<div class="total-box">
+    Subtotal: ₹{{ bill.subtotal }} <br>
+    GST (18%): ₹{{ bill.gst }} <br>
+    Service (5%): ₹{{ bill.service_charge }} <br>
+    <strong>Total: ₹{{ bill.grand_total }}</strong>
+</div>
+
+<!-- ================= ACTIONS ================= -->
+<form method="post" action="{% url 'billing:mark_paid' %}">
+    {% csrf_token %}
+    <input type="email" name="email" placeholder="Customer Email">
+    <button type="submit">✅ Mark Paid & Print</button>
+</form>
+
+<div class="footer-btns">
+    <button onclick="window.print()">🖨 Print (Browser)</button>
+    <a href="{% url 'billing:print_bill' %}" target="_blank"><button type="button">📄 Print PDF</button></a>
+    <a href="{% url 'billing:new_bill' %}"><button type="button">🧾 New Bill</button></a>
+    <a href="{% url 'logout' %}"><button type="button">Logout</button></a>
+</div>
+
+</body>
+</html>

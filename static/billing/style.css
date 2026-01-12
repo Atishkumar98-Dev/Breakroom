@@ -1,0 +1,183 @@
+/* ---------------- RESET ---------------- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ---------------- BODY ---------------- */
+body {
+    background: radial-gradient(circle at top, #1a1a1a, #050505);
+    color: #ffffff;
+    font-family: "Segoe UI", Arial, sans-serif;
+    padding: 25px;
+}
+
+/* ---------------- HEADER ---------------- */
+h1 {
+    color: #f5c400;
+    letter-spacing: 2px;
+    margin-bottom: 5px;
+}
+
+h3 {
+    margin-bottom: 15px;
+    opacity: 0.85;
+}
+
+/* ---------------- FORMS ---------------- */
+form {
+    background: #0f0f0f;
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 18px;
+    box-shadow: 0 0 25px rgba(245, 196, 0, 0.12);
+}
+
+form h2 {
+    color: #f5c400;
+    margin-bottom: 12px;
+}
+
+/* INPUTS & SELECTS */
+input, select {
+    background: #151515;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 10px;
+    margin-right: 8px;
+    border-radius: 6px;
+    min-width: 120px;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: #f5c400;
+}
+
+/* ADD BUTTON */
+form button {
+    background: linear-gradient(135deg, #f5c400, #ffdf5e);
+    border: none;
+    color: #000;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+form button:hover {
+    transform: scale(1.05);
+}
+
+/* ---------------- BILL AREA ---------------- */
+hr {
+    border: 0;
+    border-top: 1px dashed #333;
+    margin: 20px 0;
+}
+
+ul {
+    list-style: none;
+}
+
+li {
+    background: #101010;
+    margin-bottom: 10px;
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: monospace;
+}
+
+/* ITEM LEFT */
+li span {
+    flex: 1;
+}
+
+/* REMOVE */
+li a {
+    color: #ff4c4c;
+    text-decoration: none;
+    font-size: 18px;
+    margin-left: 10px;
+}
+
+/* EDIT FORM */
+li form {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+}
+
+li form input {
+    width: 70px;
+    padding: 6px;
+}
+
+/* EDIT BUTTON */
+li form button {
+    background: #333;
+    color: #f5c400;
+    padding: 6px 10px;
+}
+
+/* ---------------- TOTALS ---------------- */
+.total-box {
+    background: #0c0c0c;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 15px;
+    text-align: right;
+    font-size: 16px;
+}
+
+.total-box strong {
+    color: #f5c400;
+    font-size: 20px;
+}
+
+/* ---------------- FOOTER BUTTONS ---------------- */
+.footer-btns {
+    margin-top: 20px;
+    display: flex;
+    gap: 15px;
+}
+
+.footer-btns button {
+    background: linear-gradient(135deg, #f5c400, #ffdf5e);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #000;
+}
+
+.footer-btns button:hover {
+    transform: scale(1.05);
+}
+
+/* ---------------- PRINT MODE ---------------- */
+@media print {
+    body {
+        background: #fff;
+        color: #000;
+        padding: 0;
+    }
+
+    form, .footer-btns, a {
+        display: none;
+    }
+
+    li {
+        background: none;
+        border-bottom: 1px dashed #000;
+    }
+}
