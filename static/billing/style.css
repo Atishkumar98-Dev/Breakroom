@@ -1,183 +1,196 @@
-/* ---------------- RESET ---------------- */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+body{
+  background: radial-gradient(circle at top,#1a1a1a,#050505);
+  font-family: Arial, sans-serif;
+  color: white;
+  padding: 25px;
+}
+.msgbox{
+  background:#1a1a1a;
+  padding:10px;
+  border-radius:8px;
+  margin-bottom:12px;
+  border:1px solid #333;
 }
 
-/* ---------------- BODY ---------------- */
-body {
-    background: radial-gradient(circle at top, #1a1a1a, #050505);
-    color: #ffffff;
-    font-family: "Segoe UI", Arial, sans-serif;
-    padding: 25px;
+.msg{
+  color:#ff6666;
+  font-weight:bold;
 }
 
-/* ---------------- HEADER ---------------- */
-h1 {
-    color: #f5c400;
-    letter-spacing: 2px;
-    margin-bottom: 5px;
+.status{
+  margin-top:10px;
+  font-size:13px;
 }
 
-h3 {
-    margin-bottom: 15px;
-    opacity: 0.85;
+.free{
+  color:#33ff88;
+  font-weight:bold;
 }
 
-/* ---------------- FORMS ---------------- */
-form {
-    background: #0f0f0f;
-    border-radius: 12px;
-    padding: 18px;
-    margin-bottom: 18px;
-    box-shadow: 0 0 25px rgba(245, 196, 0, 0.12);
+.busy{
+  color:#ff4444;
+  font-weight:bold;
 }
 
-form h2 {
-    color: #f5c400;
-    margin-bottom: 12px;
+.row2{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:15px;
 }
 
-/* INPUTS & SELECTS */
-input, select {
-    background: #151515;
-    border: 1px solid #333;
-    color: #fff;
-    padding: 10px;
-    margin-right: 8px;
-    border-radius: 6px;
-    min-width: 120px;
+.row3{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:15px;
 }
 
-input:focus, select:focus {
-    outline: none;
-    border-color: #f5c400;
+.foodform{
+  display:grid;
+  grid-template-columns: 1.5fr 1fr 1fr auto;
+  gap:12px;
+  align-items:end;
+}
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:20px;
 }
 
-/* ADD BUTTON */
-form button {
-    background: linear-gradient(135deg, #f5c400, #ffdf5e);
-    border: none;
-    color: #000;
-    padding: 10px 18px;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
+.brand{
+  display:flex;
+  gap:15px;
+  align-items:center;
 }
 
-form button:hover {
-    transform: scale(1.05);
+.logo{
+  width:55px;
+  height:55px;
 }
 
-/* ---------------- BILL AREA ---------------- */
-hr {
-    border: 0;
-    border-top: 1px dashed #333;
-    margin: 20px 0;
+h1{ color:#f5c400; margin:0; }
+p{ margin:0; opacity:0.8; }
+
+.billinfo{
+  text-align:right;
 }
 
-ul {
-    list-style: none;
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
 }
 
-li {
-    background: #101010;
-    margin-bottom: 10px;
-    padding: 12px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-family: monospace;
+.card{
+  background:#0f0f0f;
+  padding:18px;
+  border-radius:12px;
+  box-shadow:0 0 20px rgba(245,196,0,0.12);
 }
 
-/* ITEM LEFT */
-li span {
-    flex: 1;
+.card.wide{
+  grid-column:span 2;
 }
 
-/* REMOVE */
-li a {
-    color: #ff4c4c;
-    text-decoration: none;
-    font-size: 18px;
-    margin-left: 10px;
+h2{
+  color:#f5c400;
+  margin-bottom:12px;
 }
 
-/* EDIT FORM */
-li form {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: none;
-    box-shadow: none;
-    padding: 0;
-    margin: 0;
+label{
+  display:block;
+  margin-top:8px;
+  margin-bottom:4px;
+  opacity:0.9;
 }
 
-li form input {
-    width: 70px;
-    padding: 6px;
+input, select{
+  width:90%;
+  padding:10px;
+  background:#151515;
+  border:1px solid #333;
+  border-radius:7px;
+  color:white;
 }
 
-/* EDIT BUTTON */
-li form button {
-    background: #333;
-    color: #f5c400;
-    padding: 6px 10px;
+.note{
+  margin-top:10px;
+  font-size:12px;
+  opacity:0.7;
 }
 
-/* ---------------- TOTALS ---------------- */
-.total-box {
-    background: #0c0c0c;
-    padding: 15px;
-    border-radius: 10px;
-    margin-top: 15px;
-    text-align: right;
-    font-size: 16px;
+.btn{
+  display:inline-block;
+  margin-top:12px;
+  padding:10px 15px;
+  background:linear-gradient(135deg,#f5c400,#ffdf5e);
+  color:black;
+  font-weight:bold;
+  border-radius:7px;
+  text-decoration:none;
+  border:none;
+  cursor:pointer;
 }
 
-.total-box strong {
-    color: #f5c400;
-    font-size: 20px;
+.btn:hover{ transform:scale(1.03); }
+
+.btn.dark{
+  background:#222;
+  color:#f5c400;
 }
 
-/* ---------------- FOOTER BUTTONS ---------------- */
-.footer-btns {
-    margin-top: 20px;
-    display: flex;
-    gap: 15px;
+.btn.pay{
+  width:100%;
+  margin-top:15px;
 }
 
-.footer-btns button {
-    background: linear-gradient(135deg, #f5c400, #ffdf5e);
-    border: none;
-    padding: 10px 20px;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
-    color: #000;
+.billtable{
+  width:100%;
+  border-collapse:collapse;
 }
 
-.footer-btns button:hover {
-    transform: scale(1.05);
+.billtable th, .billtable td{
+  padding:10px;
+  border-bottom:1px dashed #333;
+  text-align:left;
 }
 
-/* ---------------- PRINT MODE ---------------- */
-@media print {
-    body {
-        background: #fff;
-        color: #000;
-        padding: 0;
-    }
+.small{
+  width:90px;
+  padding:6px;
+}
 
-    form, .footer-btns, a {
-        display: none;
-    }
+.remove{
+  color:red;
+  font-size:18px;
+  margin-left:10px;
+  text-decoration:none;
+}
 
-    li {
-        background: none;
-        border-bottom: 1px dashed #000;
-    }
+.edit{
+  background:#222;
+  color:#f5c400;
+  border:none;
+  padding:6px 10px;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.summary p{
+  display:flex;
+  justify-content:space-between;
+  padding:5px 0;
+  font-size:14px;
+}
+
+.summary .grand{
+  font-size:18px;
+  font-weight:bold;
+  color:#f5c400;
+}
+
+.actions{
+  display:flex;
+  gap:10px;
+  margin-top:12px;
 }

@@ -2,116 +2,278 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>BREAKROOM POS</title>
-    <link rel="stylesheet" href="{% static 'billing/style.css' %}">
+  <title>BREAKROOM POS</title>
+  <link rel="stylesheet" href="{% static 'billing/style.css' %}">
 </head>
 <body>
 
-<h1>BREAKROOM</h1>
-<p>Play • Eat • Repeat</p>
+<div class="topbar">
+  <div class="brand">
+    <h1>BREAKROOM</h1>
+    <p>Play • Eat • Repeat</p>
+  </div>
 
-<h3>Current Bill: {{ bill.bill_no }}</h3>
-
-<!-- ================= GAMING ZONE ================= -->
-<form method="post">
-    {% csrf_token %}
-    <h2>🎮 Gaming Zone</h2>
-
-    <select name="item" required>
-        <option value="">Select Game</option>
-        <option>Pool Table</option>
-        <option>PS5 – FIFA</option>
-        <option>PS5 – GTA</option>
-        <option>PS5 – Cricket</option>
-        <option>PS5 – Call of Duty</option>
-    </select>
-
-    <input type="number" step="0.5" name="qty" placeholder="Hours" required>
-    <input type="number" name="rate" placeholder="Rate / Hour" required>
-
-    <button type="submit">➕ Add Gaming</button>
-</form>
-
-<!-- ================= FOOD ZONE ================= -->
-<form method="post">
-    {% csrf_token %}
-    <h2>🍔 Food Zone</h2>
-
-    <select name="item" required>
-        <option value="">Select Food</option>
-        <option>Burger</option>
-        <option>Cheese Burger</option>
-        <option>Veg Burger</option>
-        <option>French Fries</option>
-        <option>Peri Peri Fries</option>
-        <option>Pizza</option>
-        <option>Sandwich</option>
-        <option>Garlic Bread</option>
-        <option>Nachos</option>
-        <option>Popcorn</option>
-        <option>Cold Drink</option>
-        <option>Milkshake</option>
-        <option>Cold Coffee</option>
-        <option>Tea</option>
-        <option>Brownie</option>
-        <option>Ice Cream</option>
-    </select>
-
-    <input type="number" name="qty" placeholder="Quantity" required>
-    <input type="number" name="rate" placeholder="Price" required>
-
-    <button type="submit">➕ Add Food</button>
-</form>
-
-<hr>
-
-<!-- ================= BILL ITEMS ================= -->
-<h2>🧾 Bill Items</h2>
-
-{% if items %}
-<ul>
-{% for i in items %}
-    <li>
-        <strong>{{ i.item_name }}</strong>
-        — {{ i.quantity }} × {{ i.rate }}
-        = ₹{{ i.total }}
-
-        <a href="{% url 'billing:remove_item' i.id %}">❌</a>
-
-        <form method="post" action="{% url 'billing:edit_item' i.id %}" style="display:inline;">
-            {% csrf_token %}
-            <input type="number" step="0.5" name="qty" value="{{ i.quantity }}" style="width:60px;">
-            <input type="number" name="rate" value="{{ i.rate }}" style="width:80px;">
-            <button type="submit">✏️</button>
-        </form>
-    </li>
-{% endfor %}
-</ul>
-{% else %}
-<p>No items added yet.</p>
+  <div class="billinfo">
+    <h3>{{ bill.bill_no }}</h3>
+    <small>Live POS Billing</small>
+  </div>
+</div>
+{% if messages %}
+  <div class="msgbox">
+    {% for message in messages %}
+      <p class="msg">{{ message }}</p>
+    {% endfor %}
+  </div>
 {% endif %}
 
-<!-- ================= TOTALS ================= -->
-<div class="total-box">
-    Subtotal: ₹{{ bill.subtotal }} <br>
-    GST (18%): ₹{{ bill.gst }} <br>
-    Service (5%): ₹{{ bill.service_charge }} <br>
-    <strong>Total: ₹{{ bill.grand_total }}</strong>
+<div class="grid">
+
+  <!-- ✅ CUSTOMER DETAILS -->
+  <div class="card wide">
+    <h2>👤 Customer Details</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_customer">
+      <div class="row3">
+        <input name="customer_name" placeholder="Customer Name" value="{{ customer_name }}" required>
+        <input name="customer_phone" placeholder="Phone Number" value="{{ customer_phone }}" required>
+        <input name="customer_email" placeholder="Email (Optional)" value="{{ customer_email }}">
+      </div>
+      <button class="btn">✅ Save Customer</button>
+    </form>
+  </div>
+
+  <!-- 🎱 POOL -->
+  <div class="card">
+    <h2>🎱 Pool Table</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_pool">
+
+      <label>Select Table</label>
+      <select name="pool_table" required>
+        <option value="">Select</option>
+        <option value="1">Table 1</option>
+        <option value="2">Table 2</option>
+      </select>
+
+      <label>Duration</label>
+      <select name="pool_duration" required>
+        <option value="">Select</option>
+        <option value="30">Half Hour (₹150)</option>
+        <option value="60">1 Hour (₹250)</option>
+      </select>
+
+      <label>From Time</label>
+      <input type="time" name="from_time" id="pool_from" required>
+
+      <label>To Time (Auto)</label>
+      <input type="time" id="pool_to" disabled>
+
+      <p class="status">
+        Table 1: {% if pool1_busy %}<span class="busy">BUSY</span>{% else %}<span class="free">AVAILABLE</span>{% endif %}
+        |
+        Table 2: {% if pool2_busy %}<span class="busy">BUSY</span>{% else %}<span class="free">AVAILABLE</span>{% endif %}
+      </p>
+
+      <button class="btn">➕ Add Pool</button>
+    </form>
+  </div>
+
+  <!-- 🎮 PS5 -->
+  <div class="card">
+    <h2>🎮 PS5 (Per Controller)</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_ps5">
+
+      <label>Controllers</label>
+      <select name="ps5_controllers" required>
+        <option value="1">1 Controller</option>
+        <option value="2">2 Controllers</option>
+        <option value="3">3 Controllers</option>
+        <option value="4">4 Controllers</option>
+      </select>
+
+      <label>Duration</label>
+      <select name="ps5_duration" required>
+        <option value="">Select</option>
+        <option value="30">Half Hour</option>
+        <option value="60">1 Hour</option>
+      </select>
+
+      <label>From Time</label>
+        <input type="time" name="from_time_ps5" id="ps5_from" required>
+
+        <label>To Time (Auto)</label>
+        <input type="time" id="ps5_to" disabled>
+
+        <p class="status">
+          PS5: {% if ps5_busy %}<span class="busy">BUSY</span>{% else %}<span class="free">AVAILABLE</span>{% endif %}
+        </p>
+
+
+      <button class="btn">➕ Add PS5</button>
+    </form>
+  </div>
+
+  <!-- 🍔 FOOD -->
+  <div class="card wide">
+    <h2>🍔 Food Zone</h2>
+
+    <form method="post" class="foodform">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_food">
+
+      <select id="foodSelect" name="food_item" required>
+        <option value="">Select Food</option>
+        {% for name, price in menu.items %}
+          <option value="{{ name }}" data-price="{{ price }}">{{ name }}</option>
+        {% endfor %}
+      </select>
+
+      <input type="number" id="foodPrice" placeholder="Price" readonly>
+      <input type="number" name="food_qty" placeholder="Qty" required>
+
+      <button class="btn">➕ Add Food</button>
+    </form>
+  </div>
+  <div class="card wide">
+  <h2>🎁 Gaming Combos</h2>
+
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="add_combo">
+
+    <select name="combo_name" required>
+      <option value="">Select Combo</option>
+      {% for cname, cprice in combos.items %}
+        <option value="{{ cname }}">{{ cname }} — ₹{{ cprice }}</option>
+      {% endfor %}
+    </select>
+
+    <button class="btn">➕ Add Combo</button>
+  </form>
 </div>
 
-<!-- ================= ACTIONS ================= -->
-<form method="post" action="{% url 'billing:mark_paid' %}">
-    {% csrf_token %}
-    <input type="email" name="email" placeholder="Customer Email">
-    <button type="submit">✅ Mark Paid & Print</button>
+
+  <!-- DISCOUNTS -->
+  <div class="card wide">
+    <h2>🏷️ Discounts</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="apply_discounts">
+
+      <div class="row2">
+        <div>
+          <label>Food Discount (%)</label>
+          <input type="number" name="food_disc_percent" value="{{ food_disc_percent }}" placeholder="Ex: 10">
+        </div>
+
+        <div>
+          <label>Gaming Discount (₹)</label>
+          <input type="number" name="game_disc_amount" value="{{ game_disc_amount }}" placeholder="Ex: 50">
+        </div>
+      </div>
+
+      <button class="btn">✅ Apply Discount</button>
+    </form>
+  </div>
+
+  <!-- BILL -->
+  <div class="card wide">
+    <h2>🧾 Bill Items</h2>
+
+    <table class="billtable">
+      <tr>
+        <th>Item</th>
+        <th>Qty/Hr</th>
+        <th>Rate</th>
+        <th>Total</th>
+        <th>Remove</th>
+      </tr>
+
+      {% for i in items %}
+      <tr>
+        <td>{{ i.item_name }}</td>
+        <td>{{ i.quantity }}</td>
+        <td>₹{{ i.rate }}</td>
+        <td>₹{{ i.total }}</td>
+        <td><a class="remove" href="{% url 'billing:remove_item' i.id %}">❌</a></td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <div class="summary">
+      <p>Food Subtotal: <span>₹{{ totals.food_subtotal }}</span></p>
+      <p>Game Subtotal: <span>₹{{ totals.game_subtotal }}</span></p>
+      <p>Food Discount: <span>-₹{{ totals.food_discount }}</span></p>
+      <p>Game Discount: <span>-₹{{ totals.game_discount }}</span></p>
+      <hr>
+      <p class="grand">Grand Total: <span>₹{{ totals.grand_total }}</span></p>
+    </div>
+
+
+    <form method="post" action="{% url 'billing:mark_paid' %}">
+  {% csrf_token %}
+  <input type="email" name="email" placeholder="Customer Email (optional)">
+  <button class="btn pay">✅ Mark Paid & Print + Send Mail</button>
 </form>
 
-<div class="footer-btns">
-    <button onclick="window.print()">🖨 Print (Browser)</button>
-    <a href="{% url 'billing:print_bill' %}" target="_blank"><button type="button">📄 Print PDF</button></a>
-    <a href="{% url 'billing:new_bill' %}"><button type="button">🧾 New Bill</button></a>
-    <a href="{% url 'logout' %}"><button type="button">Logout</button></a>
+    <div class="actions">
+      <a href="{% url 'billing:new_bill' %}" class="btn dark">🧾 New Bill</a>
+      <a href="{% url 'logout' %}" class="btn dark">Logout</a>
+    </div>
+  </div>
+
 </div>
+
+<script>
+  const foodSelect = document.getElementById("foodSelect");
+  const foodPrice = document.getElementById("foodPrice");
+
+  foodSelect.addEventListener("change", function(){
+    let selected = foodSelect.options[foodSelect.selectedIndex];
+    let price = selected.getAttribute("data-price");
+    foodPrice.value = price ? price : "";
+  });
+</script>
+<script>
+function addMinutes(time, mins){
+  if(!time) return "";
+  let [h,m] = time.split(":").map(Number);
+  let date = new Date();
+  date.setHours(h);
+  date.setMinutes(m + mins);
+  let hh = String(date.getHours()).padStart(2,"0");
+  let mm = String(date.getMinutes()).padStart(2,"0");
+  return `${hh}:${mm}`;
+}
+
+// Pool Auto Time
+document.getElementById("pool_from").addEventListener("change", function(){
+  let duration = document.querySelector("select[name='pool_duration']").value;
+  let mins = duration === "30" ? 30 : 60;
+  document.getElementById("pool_to").value = addMinutes(this.value, mins);
+});
+
+document.querySelector("select[name='pool_duration']").addEventListener("change", function(){
+  let from = document.getElementById("pool_from").value;
+  if(from) document.getElementById("pool_to").value = addMinutes(from, this.value === "30" ? 30 : 60);
+});
+
+// PS5 Auto Time
+document.getElementById("ps5_from").addEventListener("change", function(){
+  let duration = document.querySelector("select[name='ps5_duration']").value;
+  let mins = duration === "30" ? 30 : 60;
+  document.getElementById("ps5_to").value = addMinutes(this.value, mins);
+});
+
+document.querySelector("select[name='ps5_duration']").addEventListener("change", function(){
+  let from = document.getElementById("ps5_from").value;
+  if(from) document.getElementById("ps5_to").value = addMinutes(from, this.value === "30" ? 30 : 60);
+});
+</script>
 
 </body>
 </html>
