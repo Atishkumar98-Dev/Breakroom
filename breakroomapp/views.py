@@ -392,7 +392,9 @@ def mark_paid(request):
 @login_required
 def print_bill(request):
     bill = Bill.objects.get(id=request.session["bill_id"])
-
+    game_disc = request.session["game_disc_amount"]
+    food_disc = request.session["food_disc_percent"]
+    print(game_disc,food_disc, 'disc')
     # ✅ wider than 80mm (you asked)
     width = 95 * mm
     height = 280 * mm
@@ -439,7 +441,8 @@ def print_bill(request):
 
     # ---------- BILL INFO ----------
     p.setFont("Helvetica", 8)
-    p.drawString(5, y, f"Bill No: {bill.bill_no}")
+    print(bill,'bill')
+    p.drawString(5, y, f"Bill No: {bill.bill_no} , ")
     y -= 10
     p.drawString(5, y, f"Date: {localtime(bill.created_at).strftime('%d-%m-%Y %H:%M')}")
     y -= 10
@@ -469,6 +472,7 @@ def print_bill(request):
     max_chars = 38
 
     for item in bill.billitem_set.all():
+        print(item,'item')
         name = item.item_name
         qty_text = f"{item.quantity} hr" if item.category == "GAME" else str(item.quantity)
         amt_text = f"Rs. {int(item.total)}"
@@ -488,7 +492,15 @@ def print_bill(request):
     y -= 5
     p.line(5, y, width - 5, y)
     y -= 12
+    # Discount
+    # game_disc 
+    # food_disc 
 
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(10, y, "Discount")
+    p.drawRightString(amt_x, y, f"Discount on your Gaming {int(game_disc)}")
+    # p.drawRightString(amt_x, y, f"Food Discount Rs. {int(food_disc)}")
+    y -= 40
     # ---------- TOTAL ----------
     p.setFont("Helvetica-Bold", 10)
     p.drawString(5, y, "TOTAL")
@@ -496,7 +508,7 @@ def print_bill(request):
     y -= 18
 
     p.setFont("Helvetica", 7)
-    p.drawCentredString(width / 2, y, "Thank You! Visit Again 🎮🍔")
+    p.drawCentredString(width / 2, y, "Thank You! Visit Again")
 
     p.showPage()
     p.save()
