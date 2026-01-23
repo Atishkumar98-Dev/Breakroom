@@ -1,101 +1,29 @@
-# from .models import Bill
-
-# def generate_bill_no(bill_type):
-#     prefix_map = {
-#         'G': 'BR-G',
-#         'F': 'BR-F',
-#         'P': 'BR-P',
-#         'C': 'BR-C',
-#     }
-
-#     count = Bill.objects.filter(bill_type=bill_type).count() + 1
-#     return f"{prefix_map[bill_type]}-{count:03d}"
-import subprocess
-import subprocess
-import qrcode
-import os
-from .models import Bill
-from django.core.mail import EmailMessage
+from .models import Bill, BillItem
+from django.db.models import Sum
 
 def generate_bill_no():
     count = Bill.objects.count() + 1
-    return f"BR-C-{count:03d}"
+    return f"BR-{count:05d}"
 
+def recalc_bill(bill):
+    food_total = sum(i.total for i in bill.billitem_set.filter(category="FOOD"))
+    game_total = sum(i.total for i in bill.billitem_set.filter(category="GAME"))
+    combo_total = sum(i.total for i in bill.billitem_set.filter(category="COMBO"))
 
-def detect_printer_width():
-    try:
-        out = subprocess.check_output(
-            "lpoptions -l | grep PageSize",
-            shell=True
-        ).decode()
-        if "80" in out:
-            return 80
-    except:
-        pass
-    return 58
+    food_discount = (food_total * bill.food_discount_percent / 100) if bill.food_discount_percent else 0
+    game_discount = min(bill.game_discount_amount, game_total)
 
+    grand = (food_total - food_discount) + (game_total - game_discount) + combo_total
 
-def generate_upi_qr(amount):
-    upi = f"upi://pay?pa=yourupi@bank&pn=BREAKROOM&am={int(amount)}&cu=INR"
-    path = "/tmp/upi_qr.png"
-    qrcode.make(upi).save(path)
-    return path
+    bill.subtotal = food_total + game_total + combo_total
+    bill.grand_total = max(grand, 0)
+    bill.save()
 
-
-from django.core.mail import EmailMessage
-from django.conf import settings
-
-def send_bill_email(bill, pdf_path):
-    if not bill.customer_email:
-        return
-
-    email = EmailMessage(
-        subject=f"BREAKROOM Receipt – {bill.bill_no}",
-        body=f"""
-                Thank you for visiting BREAKROOM 🎮🍔
-
-                Bill No: {bill.bill_no}
-                Amount Paid: ₹{bill.grand_total}
-
-                Your receipt is attached.
-
-                Play • Eat • Repeat
-                BREAKROOM
-                """,
-        from_email=settings.DEFAULT_FROM_EMAIL,   # ✅ no-reply
-        to=[bill.customer_email],
-    )
-
-    email.attach_file(pdf_path)
-    email.send()
-
-
-
-
-
-
-
-def detect_printer_width():
-    try:
-        output = subprocess.check_output(
-            "lpoptions -l | grep PageSize",
-            shell=True
-        ).decode()
-
-        if "80" in output:
-            return 80
-        return 58
-    except:
-        return 58  # default
-
-
-import qrcode
-import os
-
-def generate_upi_qr(amount):
-    upi_string = f"upi://pay?pa=atishkumar31518@oksbi&pn=Atish&am={int(amount)}&cu=INR"
-    qr = qrcode.make(upi_string)
-
-    path = "/tmp/upi_qr.png"
-    qr.save(path)
-    return path
+    return {
+        "food_total": food_total,
+        "game_total": game_total,
+        "combo_total": combo_total,
+        "food_discount": food_discount,
+        "game_discount": game_discount,
+        "grand_total": bill.grand_total,
+    }

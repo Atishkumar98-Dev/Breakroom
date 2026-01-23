@@ -1,0 +1,84 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Add Pool</title>
+  <link rel="stylesheet" href="{% static 'billing/style.css' %}">
+</head>
+<body>
+{% if messages %}
+  <div class="toast">
+    {% for m in messages %}
+      <div class="msg">{{ m }}</div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div class="topbar">
+  <a href="{% url 'pos:bill_summary' %}" class="btn dark">⬅ Bill</a>
+  <h2>🎱 Add Pool</h2>
+  <span class="billno">{{ bill.bill_no }}</span>
+</div>
+
+<div class="card wide">
+  <form method="post" class="formcol">
+    {% csrf_token %}
+
+    <label>Pool Table</label>
+    <select name="pool_table" required>
+      <option value="">Select</option>
+      <option value="1">Table 1</option>
+      <option value="2">Table 2</option>
+    </select>
+
+    <label>Duration</label>
+    <select name="pool_duration" id="pool_duration" required>
+  <option value="">Select</option>
+  <option value="30">30 Min </option>
+  <option value="60">1 Hour</option>
+  <option value="90">1.5 Hour</option>
+  <option value="120">2 Hour</option>
+  <option value="150">2.5 Hour</option>
+  <option value="180">3 Hour</option>
+</select>
+
+
+  <label>From Time</label>
+<input type="time" name="from_time" id="pool_from" required>
+
+<label>To Time (Auto)</label>
+<input type="time" id="pool_to" disabled>
+
+
+    <button class="btn">➕ Add Pool</button>
+  </form>
+</div>
+<script>
+function addMinutes(time, mins){
+  if(!time) return "";
+  let [h,m] = time.split(":").map(Number);
+  let date = new Date();
+  date.setHours(h);
+  date.setMinutes(m + mins);
+
+  let hh = String(date.getHours()).padStart(2,"0");
+  let mm = String(date.getMinutes()).padStart(2,"0");
+  return `${hh}:${mm}`;
+}
+
+const poolFrom = document.getElementById("pool_from");
+const poolTo   = document.getElementById("pool_to");
+const poolDur  = document.getElementById("pool_duration");
+
+function updatePoolTo(){
+  if(!poolFrom.value || !poolDur.value) return;
+  const mins = parseInt(poolDur.value);   // ✅ 30 / 60 / 90 / 120 / 150 / 180
+  poolTo.value = addMinutes(poolFrom.value, mins);
+}
+
+poolFrom.addEventListener("input", updatePoolTo);
+poolDur.addEventListener("change", updatePoolTo);
+</script>
+
+</body>
+</html>

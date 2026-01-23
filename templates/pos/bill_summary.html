@@ -1,0 +1,144 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bill Summary</title>
+  <link rel="stylesheet" href="{% static 'pos/style.css' %}">
+</head>
+<body>
+
+{% if messages %}
+  <div class="toast">
+    {% for m in messages %}
+      <div class="msg">{{ m }}</div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div class="topbar">
+  <div class="left">
+    <a href="{% url 'pos:choose_zone' %}" class="btn dark">⬅ Back</a>
+    <h2>🧾 Bill Summary</h2>
+  </div>
+  <div class="right">
+    <span class="billno">{{ bill.bill_no }}</span>
+    <span class="tag">{{ category }}</span>
+  </div>
+</div>
+
+<div class="grid2">
+
+  <div class="card">
+    <h3>👤 Customer</h3>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_customer">
+
+      <input name="customer_name" placeholder="Name" value="{% if bill.customer %}{{ bill.customer.name }}{% endif %}" required>
+      <input name="customer_phone" placeholder="Phone (optional)" value="{% if bill.customer %}{{ bill.customer.phone }}{% endif %}">
+      <input name="customer_email" placeholder="Email (required)" value="{% if bill.customer %}{{ bill.customer.email }}{% endif %}" required>
+
+      <button class="btn">✅ Save Customer</button>
+    </form>
+
+    <hr>
+
+    <p class="note">
+      🎱 Pool Table 1: {% if pool1_busy %}<span class="busy">BUSY</span>{% else %}<span class="free">FREE</span>{% endif %}<br>
+      🎱 Pool Table 2: {% if pool2_busy %}<span class="busy">BUSY</span>{% else %}<span class="free">FREE</span>{% endif %}<br>
+      🎮 PS5 65": {% if ps5_65_busy %}<span class="busy">BUSY</span>{% else %}<span class="free">FREE</span>{% endif %}<br>
+      🎮 PS5 55": {% if ps5_55_busy %}<span class="busy">BUSY</span>{% else %}<span class="free">FREE</span>{% endif %}
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>🏷️ Discounts</h3>
+    {% if bill.customer %}
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="apply_discount">
+
+  <label>Food Discount (%)</label>
+  <input type="number" name="food_disc_percent" value="{{ bill.food_discount_percent }}">
+
+  <label>Gaming Discount (Rs.)</label>
+  <input type="number" name="game_disc_amount" value="{{ bill.game_discount_amount }}">
+
+  <button class="btn">✅ Apply</button>
+</form>
+{% else %}
+<p class="note">⚠ Save Customer details first to enable discounts.</p>
+<!-- <button class="btn dark" disabled>✅ Apply</button> -->
+{% endif %}
+
+    <hr>
+
+    <div class="summary">
+      <p>Food Total <span>Rs. {{ totals.food_total }}</span></p>
+      <p>Game Total <span>Rs. {{ totals.game_total }}</span></p>
+      <p>Combo Total <span>Rs. {{ totals.combo_total }}</span></p>
+      <p>Food Discount <span>- Rs. {{ totals.food_discount }}</span></p>
+      <p>Game Discount <span>- Rs. {{ totals.game_discount }}</span></p>
+      <div class="grand">
+        <b>Total</b>
+        <b>Rs. {{ totals.grand_total }}</b>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="card wide">
+  <div class="bill-actions">
+  {% if bill.customer %}
+    <a href="{% url 'pos:add_food' %}" class="btn">➕ Food</a>
+    <a href="{% url 'pos:add_pool' %}" class="btn">➕ Pool</a>
+    <a href="{% url 'pos:add_ps5' %}" class="btn">➕ PS5</a>
+    <a href="{% url 'pos:add_combo' %}" class="btn">➕ Combo</a>
+  {% else %}
+    <!-- <button class="btn dark" disabled>➕ Food</button>
+    <button class="btn dark" disabled>➕ Pool</button>
+    <button class="btn dark" disabled>➕ PS5</button>
+    <button class="btn dark" disabled>➕ Combo</button> -->
+    <p class="note">⚠ Save customer email first to start billing.</p>
+  {% endif %}
+</div>
+
+
+  <h3>🧾 Items</h3>
+
+  {% if items %}
+  <table class="table">
+    <tr>
+      <th>Item</th>
+      <th>Qty</th>
+      <th>Amt</th>
+      <th>Remove</th>
+    </tr>
+    {% for i in items %}
+    <tr>
+      <td>{{ i.item_name }}</td>
+      <td>{% if i.category == "GAME" %}{{ i.quantity }} hr{% else %}{{ i.quantity }}{% endif %}</td>
+      <td>Rs. {{ i.total }}</td>
+      <td><a class="remove" href="{% url 'pos:remove_item' i.id %}">❌</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+    <p class="note">No items yet. Add something from buttons above ✅</p>
+  {% endif %}
+
+  <div class="paybar">
+    <a href="{% url 'pos:choose_zone' %}" class="btn dark">⬅ Add More</a>
+
+    <form method="post" action="{% url 'pos:mark_paid' %}">
+      {% csrf_token %}
+      <button class="btn pay">✅ Mark Paid & Print</button>
+    </form>
+
+    <a href="{% url 'pos:dashboard' %}" class="btn dark">📊 Dashboard</a>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,281 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>BREAKROOM POS</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <link rel="stylesheet" href="{% static 'pos/pos_new.css' %}">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <img src="{% static 'pos/logo.png' %}" class="brand-logo">
+  </div>
+  <div class="title">
+    <h1>POS SYSTEM</h1>
+  </div>
+</div>
+<div class="gold-line"></div>
+
+<div class="container">
+
+  <div class="left-area">
+
+    <!-- ✅ MESSAGES -->
+    {% if messages %}
+      <div class="toast">
+        {% for m in messages %}
+          <div class="msg">{{ m }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- ✅ CUSTOMER FORM -->
+    <div class="customer-box">
+      <form method="post" action="{% url 'pos:save_customer' %}" class="cust-form">
+        {% csrf_token %}
+        <input name="customer_name" placeholder="Customer Name" value="{% if bill.customer %}{{ bill.customer.name }}{% endif %}">
+        <input name="customer_email" placeholder="Customer Email*" value="{% if bill.customer %}{{ bill.customer.email }}{% endif %}">
+        <input name="customer_phone" placeholder="Phone (optional)" value="{% if bill.customer and bill.customer.phone %}{{ bill.customer.phone }}{% endif %}">
+        <button class="cust-btn">Save Customer</button>
+      </form>
+    </div>
+
+    <!-- TAB BAR -->
+    <div class="tabs">
+      <button class="tab active" data-tab="ps5">🎮 PlayStation 5</button>
+      <button class="tab" data-tab="pool">🎱 Pool Tables</button>
+      <button class="tab" data-tab="food">🍔 Food & Drinks</button>
+      <button class="tab" data-tab="combo">🔥 Combos</button>
+    </div>
+
+    <!-- PS5 TAB -->
+    <div class="tab-content active" id="tab-ps5">
+      <div class="grid2">
+
+        <div class="rate-card">
+          <h2>PS5 - 65 Inch</h2>
+
+          <form method="post" action="{% url 'pos:add_ps5_quick' %}" class="quick-form">
+            {% csrf_token %}
+            <input type="hidden" name="tv" value="65">
+            <input type="hidden" name="duration" value="30">
+
+            <div class="row">
+              <input type="time" name="from_time" required>
+              <select name="controllers">
+                <option value="1">1 Ctrl</option>
+                <option value="2">2 Ctrl</option>
+                <option value="3">3 Ctrl</option>
+                <option value="4">4 Ctrl</option>
+              </select>
+            </div>
+
+            <button class="rate-btn">30 Minutes (Add)</button>
+          </form>
+
+          <form method="post" action="{% url 'pos:add_ps5_quick' %}" class="quick-form">
+            {% csrf_token %}
+            <input type="hidden" name="tv" value="65">
+            <input type="hidden" name="duration" value="60">
+
+            <div class="row">
+              <input type="time" name="from_time" required>
+              <select name="controllers">
+                <option value="1">1 Ctrl</option>
+                <option value="2">2 Ctrl</option>
+                <option value="3">3 Ctrl</option>
+                <option value="4">4 Ctrl</option>
+              </select>
+            </div>
+
+            <button class="rate-btn">60 Minutes (Add)</button>
+          </form>
+        </div>
+
+
+        <div class="rate-card">
+          <h2>PS5 - 55 Inch</h2>
+
+          <form method="post" action="{% url 'pos:add_ps5_quick' %}" class="quick-form">
+            {% csrf_token %}
+            <input type="hidden" name="tv" value="55">
+            <input type="hidden" name="duration" value="30">
+
+            <div class="row">
+              <input type="time" name="from_time" required>
+              <select name="controllers">
+                <option value="1">1 Ctrl</option>
+                <option value="2">2 Ctrl</option>
+                <option value="3">3 Ctrl</option>
+                <option value="4">4 Ctrl</option>
+              </select>
+            </div>
+
+            <button class="rate-btn">30 Minutes (Add)</button>
+          </form>
+
+          <form method="post" action="{% url 'pos:add_ps5_quick' %}" class="quick-form">
+            {% csrf_token %}
+            <input type="hidden" name="tv" value="55">
+            <input type="hidden" name="duration" value="60">
+
+            <div class="row">
+              <input type="time" name="from_time" required>
+              <select name="controllers">
+                <option value="1">1 Ctrl</option>
+                <option value="2">2 Ctrl</option>
+                <option value="3">3 Ctrl</option>
+                <option value="4">4 Ctrl</option>
+              </select>
+            </div>
+
+            <button class="rate-btn">60 Minutes (Add)</button>
+          </form>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- POOL TAB -->
+    <div class="tab-content" id="tab-pool">
+      <div class="grid1">
+        <div class="rate-card">
+          <h2>Pool Table</h2>
+          <p class="mini">Auto Table Allocation (1 / 2)</p>
+
+          <form method="post" action="{% url 'pos:add_pool_quick' %}" class="quick-form">
+            {% csrf_token %}
+            <div class="row">
+              <input type="time" name="from_time" required>
+              <select name="duration" required>
+                <option value="30">30 min</option>
+                <option value="60">1 hour</option>
+                <option value="120">2 hour (Offer)</option>
+                <option value="180">3 hour (Offer)</option>
+              </select>
+            </div>
+
+            <button class="rate-btn">Add Pool Booking</button>
+          </form>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOD TAB -->
+    <div class="tab-content" id="tab-food">
+      <div class="food-grid">
+
+        {% for food, price in food_menu.items %}
+        <form method="post" action="{% url 'pos:add_food_quick' %}" class="food-form">
+          {% csrf_token %}
+          <input type="hidden" name="food_item" value="{{ food }}">
+          <input type="hidden" name="qty" value="1">
+          <button class="food-card" type="submit">
+            <h3>{{ food }}</h3>
+            <p>₹{{ price }}</p>
+          </button>
+        </form>
+        {% endfor %}
+
+      </div>
+    </div>
+
+    <!-- COMBO TAB -->
+    <div class="tab-content" id="tab-combo">
+      <div class="food-grid">
+
+        {% for c, price in combos.items %}
+        <form method="post" action="{% url 'pos:add_combo_quick' %}" class="food-form">
+          {% csrf_token %}
+          <input type="hidden" name="combo_name" value="{{ c }}">
+          <button class="food-card" type="submit">
+            <h3>{{ c }}</h3>
+            <p>₹{{ price }}</p>
+          </button>
+        </form>
+        {% endfor %}
+
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- RIGHT SIDE ORDER PANEL -->
+  <div class="right-area">
+    <div class="order-panel">
+
+      <h2>Current Order</h2>
+
+      <div class="order-items">
+        {% if items %}
+          {% for it in items %}
+            <div class="order-item">
+              <div class="oi-left">
+                <h5>{{ it.item_name }}</h5>
+                <p>Qty: {{ it.quantity }} | Rate: ₹{{ it.rate }} | Total: ₹{{ it.total }}</p>
+              </div>
+              <a class="rm" href="{% url 'pos:remove_item_quick' it.id %}">❌</a>
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="empty">No items in order</p>
+        {% endif %}
+      </div>
+
+      <!-- ✅ DISCOUNTS -->
+      <div class="discount-block">
+        <h4>🏷 Discounts</h4>
+
+        <form method="post" action="{% url 'pos:apply_discount_quick' %}">
+          {% csrf_token %}
+          <div class="discount-row2">
+            <input type="number" step="0.1" name="food_disc_percent" placeholder="Food % Discount"
+              value="{{ bill.food_discount_percent|default:0 }}">
+            <input type="number" step="1" name="game_disc_amount" placeholder="Game Rs Discount"
+              value="{{ bill.game_discount_amount|default:0 }}">
+          </div>
+          <button class="disc-btn">Apply</button>
+        </form>
+
+        {% if not bill.customer %}
+          <p class="mini warn">⚠ Save customer first to enable discounts.</p>
+        {% endif %}
+      </div>
+
+      <hr class="sep">
+
+      <div class="totals">
+        <div><span>Subtotal:</span> <b>₹{{ totals.subtotal }}</b></div>
+        <div><span>Total:</span> <b class="big">₹{{ totals.grand_total }}</b></div>
+      </div>
+
+      <a href="{% url 'pos:mark_paid' %}" class="generate-btn link-btn">🧾 Generate Bill</a>
+
+      <a href="{% url 'pos:print_bill' %}" class="clear-btn link-btn">Print Last Paid</a>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Tabs switching
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+
+      btn.classList.add("active");
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+</body>
+</html>

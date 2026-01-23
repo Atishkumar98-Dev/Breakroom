@@ -1,0 +1,49 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard - BREAKROOM</title>
+  <link rel="stylesheet" href="{% static 'billing/style.css' %}">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <h1>📊 Dashboard</h1>
+    <p>BREAKROOM Sales & Customers</p>
+  </div>
+
+  <a href="{% url 'billing:billing' %}" class="btn dark">⬅ Back to Billing</a>
+</div>
+
+<div class="grid">
+
+  <div class="card">
+    <h2>Total Sales</h2>
+    <p style="font-size:28px; color:#f5c400;">Rs. {{ total_sales }}</p>
+  </div>
+
+  <div class="card">
+    <h2>Total Paid Bills</h2>
+    <p style="font-size:28px; color:#f5c400;">{{ total_bills }}</p>
+  </div>
+
+  <div class="card">
+    <h2>Total Customers</h2>
+    <p style="font-size:28px; color:#f5c400;">{{ total_customers }}</p>
+  </div>
+
+  <div class="card">
+    <h2>Returning Customers</h2>
+    <p style="font-size:28px; color:#f5c400;">{{ returning_customers }}</p>
+  </div>
+
+  <div class="card wide">
+    <h2>Today Sales</h2>
+    <p style="font-size:22px; color:#f5c400;">Rs. {{ today_sales }} | Bills: {{ today_bills }}</p>
+  </div>
+
+</div>
+
+</body>
+</html>

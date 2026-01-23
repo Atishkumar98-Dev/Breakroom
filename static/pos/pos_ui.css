@@ -1,0 +1,104 @@
+.customer-box{
+  margin-bottom:14px;
+  border:2px solid #f5c400;
+  padding:12px;
+  border-radius:16px;
+  background:#111;
+}
+
+.cust-form{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr auto;
+  gap:10px;
+}
+
+.cust-form input{
+  padding:10px;
+  background:#0c0c0c;
+  border:1px solid #333;
+  border-radius:10px;
+  color:white;
+}
+
+.cust-btn{
+  background:#f5c400;
+  border:none;
+  padding:10px 14px;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.quick-form{
+  margin-top:12px;
+}
+
+.row{
+  display:flex;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.row input, .row select{
+  flex:1;
+  padding:10px;
+  background:#0c0c0c;
+  border:1px solid #333;
+  border-radius:10px;
+  color:white;
+}
+
+.food-form{
+  margin:0;
+}
+
+.food-card{
+  width:100%;
+  border:2px solid #f5c400;
+  border-radius:14px;
+  background:#111;
+  padding:14px;
+  cursor:pointer;
+  transition:0.2s;
+  text-align:left;
+}
+
+.food-card:hover{
+  transform:translateY(-2px);
+}
+
+.discount-row2{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+}
+
+.discount-row2 input{
+  flex:1;
+  padding:10px;
+  background:#0c0c0c;
+  border:1px solid #333;
+  border-radius:10px;
+  color:white;
+}
+
+.disc-btn{
+  margin-top:10px;
+  width:100%;
+  padding:12px;
+  background:#f5c400;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.link-btn{
+  display:block;
+  text-align:center;
+  text-decoration:none;
+}
+
+.warn{
+  color:#ffb74d;
+}

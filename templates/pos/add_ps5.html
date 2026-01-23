@@ -1,0 +1,89 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Add PS5</title>
+  <link rel="stylesheet" href="{% static 'pos/style.css' %}">
+</head>
+<body>
+
+<div class="topbar">
+  <a href="{% url 'pos:bill_summary' %}" class="btn dark">⬅ Bill</a>
+  <h2>🎮 Add PS5</h2>
+  <span class="billno">{{ bill.bill_no }}</span>
+</div>
+
+<div class="card wide">
+  <form method="post" class="formcol">
+    {% csrf_token %}
+
+    <label>PS5 Setup</label>
+    <select name="ps5_tv" required>
+      <option value="">Select</option>
+      <option value="65">PS5 (65 Inch)</option>
+      <option value="55">PS5 (55 Inch)</option>
+    </select>
+
+    <label>Controllers</label>
+    <select name="ps5_controllers" required>
+      <option value="1">1 Controller</option>
+      <option value="2">2 Controllers</option>
+      <option value="3">3 Controllers</option>
+      <option value="4">4 Controllers</option>
+    </select>
+
+    <label>Duration</label>
+    <select name="ps5_duration" id="ps5_duration" required>
+        <option value="">Select</option>
+        <option value="30">30 Min</option>
+        <option value="60">1 Hour</option>
+        <option value="90">1.5 Hour</option>
+        <option value="120">2 Hour</option>
+        <option value="150">2.5 Hour</option>
+        <option value="180">3 Hour</option>
+        </select>
+
+
+    <label>From Time</label>
+    <input type="time" name="from_time_ps5" id="ps5_from" required>
+
+    <label>To Time (Auto)</label>
+    <input type="time" id="ps5_to" disabled>
+
+    <button class="btn">➕ Add PS5</button>
+  </form>
+</div>
+
+<script>
+function addMinutes(time, mins){
+  if(!time) return "";
+  let [h,m] = time.split(":").map(Number);
+  let date = new Date();
+  date.setHours(h);
+  date.setMinutes(m + mins);
+  let hh = String(date.getHours()).padStart(2,"0");
+  let mm = String(date.getMinutes()).padStart(2,"0");
+  return `${hh}:${mm}`;
+}
+const ps5From = document.getElementById("ps5_from");
+const ps5To = document.getElementById("ps5_to");
+const ps5Dur = document.getElementById("ps5_duration");
+function updateTo(){
+  if(!ps5From.value || !ps5Dur.value) return;
+  let mins = ps5Dur.value === "30" ? 30 : 60;
+  ps5To.value = addMinutes(ps5From.value, mins);
+}
+ps5From.addEventListener("change", updateTo);
+ps5Dur.addEventListener("change", updateTo);
+</script>
+
+<script>
+    function updateTo(){
+  if(!poolFrom.value || !poolDur.value) return;
+  let mins = parseInt(poolDur.value);
+  poolTo.value = addMinutes(poolFrom.value, mins);
+}
+
+</script>
+</body>
+</html>

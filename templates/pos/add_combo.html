@@ -1,0 +1,33 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Add Combo</title>
+  <link rel="stylesheet" href="{% static 'pos/style.css' %}">
+</head>
+<body>
+
+<div class="topbar">
+  <a href="{% url 'pos:bill_summary' %}" class="btn dark">⬅ Bill</a>
+  <h2>🎁 Add Combo</h2>
+  <span class="billno">{{ bill.bill_no }}</span>
+</div>
+
+<div class="card wide">
+  <form method="post" class="formcol">
+    {% csrf_token %}
+
+    <label>Select Combo</label>
+    <select name="combo_name" required>
+      <option value="">Select</option>
+      {% for name, price in combos.items %}
+        <option value="{{ name }}">{{ name }} — Rs. {{ price }}</option>
+      {% endfor %}
+    </select>
+
+    <button class="btn">➕ Add Combo</button>
+  </form>
+</div>
+
+</body>
+</html>

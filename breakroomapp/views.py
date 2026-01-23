@@ -1,9 +1,9 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.conf import settings
-from django.utils.timezone import localtime, now
 from django.contrib import messages
+from django.conf import settings
 from django.http import HttpResponse
+from django.utils.timezone import localtime, now
 from django.core.mail import EmailMessage
 from django.db.models import Sum
 
@@ -15,89 +15,64 @@ import io, os
 from datetime import datetime, timedelta
 
 from .models import Bill, BillItem, Customer
-from .utils import generate_bill_no
+from .utils import generate_bill_no, recalc_bill
+
+# ✅ Import ALL rates & menu from rates.py
+from .rates import FOOD_MENU, COMBOS, pool_rate_for_time, ps5_price
 
 
-# ✅ FOOD MENU
-FOOD_MENU = {
-    "French Fries": 119,
-    "Momo’s": 149,
-    "Smoked Momo’s": 169,
-    "Cheesy Poppers": 179,
-    "Crispy Cheese Sticks": 189,
-    "Potato Wedges": 129,
-    "Maggie": 39,
-    "Virgin Mojito": 79,
-    "Cold Coffee": 99,
-    "Hot Chocolate": 109,
-    "Coffee": 89,
-    "Kesar Tea": 49,
-    "Lemon Tea": 39,
-    "Mayonise": 29,
-    "Chipotle": 29,
-    "Cheese Dip": 39,
-    "Peri Peri": 29,
-    "Honey Mustard": 39
-}
-
-# ✅ GAMING RATES
-# ✅ POOL RATES
-POOL_RATES = {"30": 150, "60": 250}
-
-# ✅ PS5 65 INCH
-PS5_65_SINGLE = {"30": 150, "60": 250}
-PS5_65_MULTI  = {"30": 90,  "60": 150}
-
-# ✅ PS5 55 INCH
-PS5_55_SINGLE = {"30": 140, "60": 220}
-PS5_55_MULTI  = {"30": 80,  "60": 140}
-  # ✅ half hour multi controller = 90 (per controller)
-
-# ✅ COMBOS (Food + Gaming both)
-COMBOS = {
-    # POOL
-    "Pool 30 + Fries + Virgin Mojito": 319,
-    "Pool 30 + Wedges + Cold Coffee": 329,
-    "Pool 30 + Momo’s + Lemon Tea": 329,
-    "Pool 1 hr + Fries + Cold Coffee": 429,
-    "Pool 1 hr + Smoked Momo’s + Virgin Mojito": 479,
-    "Pool 1 hr + Cheesy Poppers + Hot Chocolate": 499,
-
-    # PS5 65
-    "PS5 65\" 30 + Fries + Cold Coffee": 349,
-    "PS5 65\" 30 + Momo’s + Virgin Mojito": 349,
-    "PS5 65\" 1 hr + Smoked Momo’s + Cold Coffee": 499,
-    "PS5 65\" 1 hr + Cheesy Poppers + Virgin Mojito": 499,
-    "PS5 65\" (2 Ctrl) 30 + Fries x2 + Mojito": 449,
-    "PS5 65\" (2 Ctrl) 30 + Momo’s + Fries + Cold Coffee": 449,
-    "PS5 65\" (2 Ctrl) 1 hr + Fries + Cold Coffee": 529,
-    "PS5 65\" (2 Ctrl) 1 hr + Smoked Momo’s + Virgin Mojito": 579,
-
-    # PS5 55
-    "PS5 55\" 30 + Fries + Lemon Tea": 299,
-    "PS5 55\" 30 + Maggie + Cold Coffee": 259,
-    "PS5 55\" 1 hr + Momo’s + Cold Coffee": 419,
-    "PS5 55\" 1 hr + Cheesy Poppers + Virgin Mojito": 449,
-    "PS5 55\" (2 Ctrl) 30 + Fries + Cold Coffee": 349,
-    "PS5 55\" (2 Ctrl) 30 + Wedges + Mojito": 349,
-    "PS5 55\" (2 Ctrl) 1 hr + Fries + Cold Coffee": 479,
-    "PS5 55\" (2 Ctrl) 1 hr + Smoked Momo’s + Virgin Mojito": 529,
-
-    # UPSELL
-    "Dip Pack (Mayo + Peri Peri)": 49,
-    "Cheese Dip Add-on": 39,
-    "Lemon Tea Add-on": 39,
-    "Cold Coffee Upgrade": 99,
-}
-
-
+# ------------------ HELPERS ------------------
 def add_minutes_to_time(time_str, minutes):
+    """ 'HH:MM' + minutes => 'HH:MM' """
     t = datetime.strptime(time_str, "%H:%M")
     t2 = t + timedelta(minutes=minutes)
     return t2.strftime("%H:%M")
 
 
+def is_weekend_today():
+    """ Saturday=5, Sunday=6 """
+    return localtime(now()).weekday() in [5, 6]
+
+
+def get_current_bill(request):
+    """
+    Always keep 1 OPEN bill in session.
+    If not exists -> create new.
+    """
+    bill_id = request.session.get("bill_id")
+
+    if bill_id:
+        bill = Bill.objects.filter(id=bill_id, is_paid=False).first()
+        if bill:
+            return bill
+
+    bill = Bill.objects.create(bill_no=generate_bill_no())
+    request.session["bill_id"] = bill.id
+    return bill
+
+def is_resource_busy(resource, start_t, end_t):
+    """
+    Checks ALL OPEN (unpaid) bills for overlap of same resource.
+    """
+    existing = BillItem.objects.filter(
+        category="GAME",
+        resource=resource,
+        bill__is_paid=False
+    )
+
+    for item in existing:
+        if not item.start_time or not item.end_time:
+            continue
+
+        # overlap condition
+        if start_t < item.end_time and end_t > item.start_time:
+            return True
+    return False
+
 def has_overlap(bill, resource, start_t, end_t):
+    """
+    Prevent overlap inside same bill for same resource.
+    """
     existing = BillItem.objects.filter(bill=bill, category="GAME", resource=resource)
 
     for item in existing:
@@ -109,376 +84,466 @@ def has_overlap(bill, resource, start_t, end_t):
     return False
 
 
-def update_bill_category(bill):
+def bill_category(bill):
     has_food = bill.billitem_set.filter(category="FOOD").exists()
     has_game = bill.billitem_set.filter(category="GAME").exists()
     has_combo = bill.billitem_set.filter(category="COMBO").exists()
 
-    # ✅ combo counts as BOTH
     if has_combo:
-        bill.bill_category = "BOTH"
-    elif has_food and has_game:
-        bill.bill_category = "BOTH"
-    elif has_food:
-        bill.bill_category = "FOOD"
-    elif has_game:
-        bill.bill_category = "GAME"
-    else:
-        bill.bill_category = "FOOD"
-
-    bill.save()
+        return "BOTH"
+    if has_food and has_game:
+        return "BOTH"
+    if has_food:
+        return "FOOD"
+    if has_game:
+        return "GAME"
+    return "EMPTY"
 
 
-def recalc_bill(bill, food_disc_percent=0, game_disc_amount=0):
-    food_items = bill.billitem_set.filter(category="FOOD")
-    game_items = bill.billitem_set.filter(category="GAME")
-    combo_items = bill.billitem_set.filter(category="COMBO")
-
-    food_subtotal = sum(i.total for i in food_items)
-    game_subtotal = sum(i.total for i in game_items)
-    combo_subtotal = sum(i.total for i in combo_items)
-
-    # ✅ discounts
-    food_discount = food_subtotal * float(food_disc_percent) / 100 if food_disc_percent else 0
-    game_discount = float(game_disc_amount) if game_disc_amount else 0
-    game_discount = min(game_discount, game_subtotal)
-
-    food_after = max(food_subtotal - food_discount, 0)
-    game_after = max(game_subtotal - game_discount, 0)
-
-    grand_total = food_after + game_after + combo_subtotal
-
-    bill.subtotal = food_subtotal + game_subtotal + combo_subtotal
-    bill.gst = 0
-    bill.service_charge = 0
-    bill.grand_total = grand_total
-    bill.save()
-
-    return {
-        "food_subtotal": food_subtotal,
-        "game_subtotal": game_subtotal,
-        "combo_subtotal": combo_subtotal,
-        "food_discount": food_discount,
-        "game_discount": game_discount,
-        "grand_total": grand_total,
-    }
-
-
+# ------------------ STEP 1: CHOOSE ZONE ------------------
 @login_required
-def billing_page(request):
-    bill_id = request.session.get("bill_id")
+def choose_zone(request):
+    bill = get_current_bill(request)
+    totals = recalc_bill(bill)
 
-    if bill_id:
-        bill = Bill.objects.get(id=bill_id)
-    else:
-        bill = Bill.objects.create(bill_no=generate_bill_no())
-        request.session["bill_id"] = bill.id
+    return render(request, "pos/choose_zone.html", {
+        "bill": bill,
+        "totals": totals,
+        "category": bill_category(bill),
+    })
 
-    food_disc_percent = request.session.get("food_disc_percent", 0)
-    game_disc_amount = request.session.get("game_disc_amount", 0)
+
+# ------------------ BILL SUMMARY ------------------
+@login_required
+def bill_summary(request):
+    bill = get_current_bill(request)
 
     if request.method == "POST":
         action = request.POST.get("action")
 
-        # ✅ SAVE CUSTOMER (EMAIL BASED)
+        # ✅ Save customer once (Email based)
         if action == "save_customer":
             name = request.POST.get("customer_name", "").strip()
-            phone = request.POST.get("customer_phone", "").strip()
             email = request.POST.get("customer_email", "").strip()
+            phone = request.POST.get("customer_phone", "").strip()
 
             if not email:
-                messages.error(request, "❌ Email is required for customer history!")
-                return redirect("billing:billing")
-
-            bill.customer_name = name
-            bill.customer_phone = phone
-            bill.customer_email = email
-            bill.save()
+                messages.error(request, "❌ Email is required.")
+                return redirect("pos:bill_summary")
 
             cust, created = Customer.objects.get_or_create(
                 email=email,
                 defaults={"name": name, "phone": phone}
             )
             if not created:
+                # update info if changed
                 cust.name = name
                 if phone:
                     cust.phone = phone
                 cust.save()
 
-            if cust.visits >= 4:
-                messages.success(request, f"🎁 Loyalty! {cust.visits} visits. Discount option available ✅")
+            bill.customer = cust
+            bill.save()
 
-            return redirect("billing:billing")
+            # ✅ Loyalty eligible only if prev paid total >= 999
+            prev_total = cust.total_paid_amount()
+            if prev_total >= 999:
+                messages.success(request, f"🎁 Loyalty Eligible ✅ Previous Paid Total: Rs. {int(prev_total)}")
+            else:
+                messages.info(request, f"ℹ Loyalty rule: needs Rs.999 previous paid. Current: Rs. {int(prev_total)}")
 
-        # ✅ ADD FOOD
-        if action == "add_food":
-            item = request.POST.get("food_item")
-            qty = request.POST.get("food_qty")
-            if item and qty:
-                BillItem.objects.create(
-                    bill=bill,
-                    item_name=item,
-                    quantity=float(qty),
-                    rate=float(FOOD_MENU.get(item, 0)),
-                    category="FOOD"
-                )
+        # ✅ Apply discounts
+        elif action == "apply_discount":
+            if not bill.customer:
+                messages.error(request, "❌ Please save Customer details first to apply discount.")
+                return redirect("billing:bill_summary")
+            bill.food_discount_percent = float(request.POST.get("food_disc_percent") or 0)
+            bill.game_discount_amount = float(request.POST.get("game_disc_amount") or 0)
+            bill.save()
 
-        # ✅ ADD POOL
-        elif action == "add_pool":
-            table_no = request.POST.get("pool_table")
-            duration = request.POST.get("pool_duration")
-            ft = request.POST.get("from_time")
+            if bill.customer and bill.customer.total_paid_amount() < 999:
+                messages.warning(request, "⚠ Not eligible for loyalty discount (needs Rs.999 previous paid).")
 
-            if table_no and duration and ft:
-                minutes = 30 if duration == "30" else 60
-                auto_to = add_minutes_to_time(ft, minutes)
+        recalc_bill(bill)
+        return redirect("pos:bill_summary")
 
-                start_t = datetime.strptime(ft, "%H:%M").time()
-                end_t = datetime.strptime(auto_to, "%H:%M").time()
-                resource = f"POOL-{table_no}"
+    totals = recalc_bill(bill)
 
-                if has_overlap(bill, resource, start_t, end_t):
-                    messages.error(request, f"❌ Pool Table {table_no} BUSY during {ft}-{auto_to}")
-                    return redirect("billing:billing")
-
-                rate = POOL_RATES.get(duration, 0)
-                qty = 0.5 if duration == "30" else 1
-                name = f"Pool Table {table_no} ({ft}-{auto_to})"
-
-                BillItem.objects.create(
-                    bill=bill,
-                    item_name=name,
-                    quantity=qty,
-                    rate=rate,
-                    category="GAME",
-                    start_time=start_t,
-                    end_time=end_t,
-                    resource=resource
-                )
-
-        # ✅ ADD PS5
-        elif action == "add_ps5":
-            tv_size = request.POST.get("ps5_tv")  # ✅ 65 / 55
-            controllers = int(request.POST.get("ps5_controllers", 1))
-            duration = request.POST.get("ps5_duration")
-            ft = request.POST.get("from_time_ps5")
-
-            if tv_size and duration and ft:
-                minutes = 30 if duration == "30" else 60
-                auto_to = add_minutes_to_time(ft, minutes)
-
-                start_t = datetime.strptime(ft, "%H:%M").time()
-                end_t = datetime.strptime(auto_to, "%H:%M").time()
-
-                # ✅ Separate resource for each PS5
-                resource = "PS5-65" if tv_size == "65" else "PS5-55"
-
-                # ✅ overlap check for that particular PS5
-                if has_overlap(bill, resource, start_t, end_t):
-                    messages.error(request, f"❌ {resource} BUSY during {ft}-{auto_to}")
-                    return redirect("billing:billing")
-
-                # ✅ Pricing logic depends on TV size + controllers
-                if tv_size == "65":
-                    if controllers == 1:
-                        rate = PS5_65_SINGLE.get(duration, 0)
-                    else:
-                        rate = PS5_65_MULTI.get(duration, 0) * controllers
-
-                    name = f"PS5 (65 Inch) ({controllers} Ctrl) ({ft}-{auto_to})"
-
-                else:  # 55 inch
-                    if controllers == 1:
-                        rate = PS5_55_SINGLE.get(duration, 0)
-                    else:
-                        rate = PS5_55_MULTI.get(duration, 0) * controllers
-
-                    name = f"PS5 (55 Inch) ({controllers} Ctrl) ({ft}-{auto_to})"
-
-                qty = 0.5 if duration == "30" else 1
-
-                BillItem.objects.create(
-                    bill=bill,
-                    item_name=name,
-                    quantity=qty,
-                    rate=rate,
-                    category="GAME",
-                    start_time=start_t,
-                    end_time=end_t,
-                    resource=resource
-                )
-
-
-        # ✅ ADD COMBO
-        elif action == "add_combo":
-            combo_name = request.POST.get("combo_name")
-            if combo_name in COMBOS:
-                BillItem.objects.create(
-                    bill=bill,
-                    item_name=combo_name,
-                    quantity=1,
-                    rate=float(COMBOS[combo_name]),
-                    category="COMBO"
-                )
-
-        # ✅ APPLY DISCOUNTS
-        elif action == "apply_discounts":
-            request.session["food_disc_percent"] = float(request.POST.get("food_disc_percent") or 0)
-            request.session["game_disc_amount"] = float(request.POST.get("game_disc_amount") or 0)
-
-        recalc_bill(bill,
-                    request.session.get("food_disc_percent", 0),
-                    request.session.get("game_disc_amount", 0))
-
-        update_bill_category(bill)
-        return redirect("billing:billing")
-
-    totals = recalc_bill(bill, food_disc_percent, game_disc_amount)
-    update_bill_category(bill)
-
+    # ✅ Availability flags (inside this bill items)
     pool1_busy = BillItem.objects.filter(bill=bill, resource="POOL-1").exists()
     pool2_busy = BillItem.objects.filter(bill=bill, resource="POOL-2").exists()
     ps5_65_busy = BillItem.objects.filter(bill=bill, resource="PS5-65").exists()
     ps5_55_busy = BillItem.objects.filter(bill=bill, resource="PS5-55").exists()
 
-
-    return render(request, "billing/billing.html", {
+    return render(request, "pos/bill_summary.html", {
         "bill": bill,
-        "items": bill.billitem_set.all(),
-        "menu": FOOD_MENU,
-        "combos": COMBOS,
+        "items": bill.billitem_set.all().order_by("created_at"),
         "totals": totals,
-        "food_disc_percent": food_disc_percent,
-        "game_disc_amount": game_disc_amount,
-        "customer_name": bill.customer_name or "",
-        "customer_phone": bill.customer_phone or "",
-        "customer_email": bill.customer_email or "",
+        "category": bill_category(bill),
+
         "pool1_busy": pool1_busy,
         "pool2_busy": pool2_busy,
-       "ps5_65_busy": ps5_65_busy,
+        "ps5_65_busy": ps5_65_busy,
         "ps5_55_busy": ps5_55_busy,
-
     })
 
 
+# ------------------ ADD FOOD ------------------
+@login_required
+def add_food(request):
+    bill = get_current_bill(request)
+
+    if request.method == "POST":
+        item = request.POST.get("food_item")
+        qty = request.POST.get("food_qty")
+
+        if item and qty:
+            BillItem.objects.create(
+                bill=bill,
+                category="FOOD",
+                item_name=item,
+                quantity=float(qty),
+                rate=float(FOOD_MENU.get(item, 0)),
+            )
+            messages.success(request, f"✅ Added {item}")
+        return redirect("pos:bill_summary")
+
+    return render(request, "pos/add_food.html", {
+        "bill": bill,
+        "menu": FOOD_MENU
+    })
+
+def allocate_pool_table(preferred_table, start_t, end_t):
+    """
+    ✅ Smart Pool Allocation:
+    - Checks availability globally across ALL open bills (unpaid)
+    - If preferred table is busy, tries the other table
+    - Returns (selected_table, status_message)
+    - If no table available, returns (None, "no_table")
+    """
+
+    def is_resource_busy(resource):
+        # ✅ GLOBAL check: all OPEN bills
+        existing = BillItem.objects.filter(
+            category="GAME",
+            resource=resource,
+            bill__is_paid=False
+        )
+
+        for item in existing:
+            if not item.start_time or not item.end_time:
+                continue
+
+            # ✅ overlap condition
+            if start_t < item.end_time and end_t > item.start_time:
+                return True
+
+        return False
+
+    # ✅ decide table order
+    if preferred_table in ["1", "2"]:
+        try_order = [preferred_table, "2" if preferred_table == "1" else "1"]
+    else:
+        try_order = ["1", "2"]  # default order
+
+    # ✅ find available table
+    for t in try_order:
+        resource = f"POOL-{t}"
+        if not is_resource_busy(resource):
+            # ✅ found free
+            if preferred_table and t != preferred_table:
+                return t, f"⚠ Table {preferred_table} is busy. Try Table {t} ✅"
+            return t, None
+
+    # ❌ none free
+    return None, "❌ No Pool Table Available in the given time. Please wait in Waiting Area 🪑"
+
+# ------------------ ADD POOL ------------------
+@login_required
+def add_pool(request):
+    bill = get_current_bill(request)
+
+    if request.method == "POST":
+        table_no = request.POST.get("pool_table")
+        duration = request.POST.get("pool_duration")  # 30/60/120/180
+        ft = request.POST.get("from_time")
+
+        if table_no and duration and ft:
+            minutes = int(duration)
+            auto_to = add_minutes_to_time(ft, minutes)
+
+            start_t = datetime.strptime(ft, "%H:%M").time()
+            end_t = datetime.strptime(auto_to, "%H:%M").time()
+            selected_table, msg = allocate_pool_table(table_no, start_t, end_t)
+
+            if not selected_table:
+                messages.error(request, msg)
+                return redirect("pos:add_pool")   # ✅ message shown on Add Pool page
+
+            if msg:
+                messages.warning(request, msg)
+
+            # ✅ Now use selected table
+            resource = f"POOL-{selected_table}"
+
+            weekend = is_weekend_today()
+            rates = pool_rate_for_time(start_t, weekend)
+
+            rate = rates.get(duration, 0)
+            if rate == 0:
+                messages.error(request, "❌ Duration not available for selected time slot.")
+                return redirect("billing:add_pool")
+
+            qty = minutes / 60
+            resource = f"POOL-{selected_table}"
+
+
+            if has_overlap(bill, resource, start_t, end_t):
+                messages.error(request, f"❌ Pool Table {table_no} BUSY during {ft}-{auto_to}")
+                return redirect("pos:add_pool")
+
+            name = f"Pool Table {selected_table} ({ft}-{auto_to})"
+
+
+            BillItem.objects.create(
+                bill=bill,
+                category="GAME",
+                item_name=name,
+                quantity=qty,
+                rate=rate,
+                resource=resource,
+                start_time=start_t,
+                end_time=end_t,
+            )
+            messages.success(request, f"✅ Added {name}")
+
+        return redirect("pos:bill_summary")
+
+    return render(request, "pos/add_pool.html", {"bill": bill})
+
+
+# ------------------ ADD PS5 ------------------
+@login_required
+def add_ps5(request):
+    bill = get_current_bill(request)
+
+    if request.method == "POST":
+        tv_size = request.POST.get("ps5_tv")  # "65" or "55"
+        controllers = int(request.POST.get("ps5_controllers", 1))
+        duration = request.POST.get("ps5_duration")  # "30" or "60"
+        ft = request.POST.get("from_time_ps5")
+
+        if tv_size and duration and ft:
+            minutes = int(duration)
+            auto_to = add_minutes_to_time(ft, minutes)
+
+            start_t = datetime.strptime(ft, "%H:%M").time()
+            end_t = datetime.strptime(auto_to, "%H:%M").time()
+
+            resource = "PS5-65" if tv_size == "65" else "PS5-55"
+
+            if has_overlap(bill, resource, start_t, end_t):
+                messages.error(request, f"❌ {resource} BUSY during {ft}-{auto_to}")
+                return redirect("pos:add_ps5")
+
+            rate = ps5_price(tv_size, controllers, duration)
+            if rate == 0:
+                messages.error(request, "❌ Invalid PS5 selection.")
+                return redirect("pos:add_ps5")
+
+            qty = minutes / 60
+            name = f"PS5 ({tv_size} Inch) ({controllers} Ctrl) ({ft}-{auto_to})"
+
+            BillItem.objects.create(
+                bill=bill,
+                category="GAME",
+                item_name=name,
+                quantity=qty,
+                rate=rate,
+                resource=resource,
+                start_time=start_t,
+                end_time=end_t,
+            )
+            messages.success(request, f"✅ Added {name}")
+
+        return redirect("pos:bill_summary")
+
+    return render(request, "pos/add_ps5.html", {"bill": bill})
+
+
+# ------------------ ADD COMBO ------------------
+@login_required
+def add_combo(request):
+    bill = get_current_bill(request)
+    
+    if request.method == "POST":
+        combo_name = request.POST.get("combo_name")
+        if combo_name in COMBOS:
+            BillItem.objects.create(
+                bill=bill,
+                category="COMBO",
+                item_name=combo_name,
+                quantity=1,
+                rate=float(COMBOS[combo_name]),
+            )
+            messages.success(request, f"✅ Added Combo: {combo_name}")
+        return redirect("pos:bill_summary")
+
+    return render(request, "pos/add_combo.html", {
+        "bill": bill,
+        "combos": COMBOS
+    })
+
+
+# ------------------ REMOVE ITEM ------------------
 @login_required
 def remove_item(request, item_id):
-    item = BillItem.objects.filter(id=item_id).first()
-    if item:
-        bill = item.bill
-        item.delete()
-        update_bill_category(bill)
-    return redirect("billing:billing")
+    bill = get_current_bill(request)
+    BillItem.objects.filter(id=item_id, bill=bill).delete()
+    messages.success(request, "✅ Item removed")
+    return redirect("pos:bill_summary")
 
 
+# ------------------ MARK PAID ------------------
 @login_required
 def mark_paid(request):
-    bill = Bill.objects.get(id=request.session["bill_id"])
+    bill = get_current_bill(request)
 
-    # ✅ No email asked again
+    if not bill.billitem_set.exists():
+        messages.error(request, "❌ Add items first!")
+        return redirect("pos:bill_summary")
+
+    # ✅ Final calculation
+    recalc_bill(bill)
+
     bill.is_paid = True
     bill.save()
 
-    # ✅ increase visits by EMAIL
-    if bill.customer_email:
-        cust = Customer.objects.filter(email=bill.customer_email).first()
-        if cust:
-            cust.visits += 1
-            cust.save()
+    # ✅ Auto new bill for next customer
+    request.session.pop("bill_id", None)
+    new_bill = Bill.objects.create(bill_no=generate_bill_no())
+    request.session["bill_id"] = new_bill.id
 
-    return redirect("billing:print_bill")
+    messages.success(request, f"✅ Paid Successfully! New Bill: {new_bill.bill_no}")
+    return redirect("pos:print_bill")
 
 
+# ------------------ PRINT BILL (PDF + EMAIL) ------------------
+@login_required
 @login_required
 def print_bill(request):
-    bill = Bill.objects.get(id=request.session["bill_id"])
-    game_disc = request.session["game_disc_amount"]
-    food_disc = request.session["food_disc_percent"]
-    print(game_disc,food_disc, 'disc')
-    # ✅ wider than 80mm (you asked)
-    width = 95 * mm
-    height = 280 * mm
+    paid_bill = Bill.objects.filter(is_paid=True).order_by("-created_at").first()
+
+    if not paid_bill:
+        messages.error(request, "❌ No paid bill found.")
+        return redirect("pos:bill_summary")
+
+    # ✅ Slightly wider for better clarity
+    width = 100 * mm
+    height = 290 * mm
 
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=(width, height))
 
-    # ✅ logo from static
-    logo_path = os.path.join(settings.BASE_DIR, "static", "billing", "logo.png")
+    logo_path = os.path.join(settings.BASE_DIR, "static", "pos", "logo.png")
 
-    # ---------- WATERMARK ----------
+    # ✅ Watermark
     if os.path.exists(logo_path):
         p.saveState()
         try:
             p.setFillAlpha(0.06)
         except:
             pass
-
-        p.translate(width / 2, height / 2 + 20)
+        p.translate(width / 2, height / 2 + 30)
         p.rotate(45)
         logo_img = ImageReader(logo_path)
-        p.drawImage(logo_img, -90, -90, 180, 180, mask="auto")
+        p.drawImage(logo_img, -95, -95, 190, 190, mask="auto")
         p.restoreState()
 
-    y = height - 20
+    y = height - 18
 
-    # ---------- HEADER LOGO ----------
+    # ✅ Header logo
     if os.path.exists(logo_path):
         logo_img = ImageReader(logo_path)
-        p.drawImage(logo_img, width / 2 - 22, y - 35, 44, 44, mask="auto")
-        y -= 50
+        p.drawImage(logo_img, width/2 - 20, y - 38, 40, 40, mask="auto")
+        y -= 48
 
-    # ---------- HEADER ----------
-    p.setFont("Helvetica-Bold", 12)
-    p.drawCentredString(width / 2, y, "BREAKROOM")
+    p.setFont("Helvetica-Bold", 13)
+    p.drawCentredString(width/2, y, "BREAKROOM")
     y -= 14
 
     p.setFont("Helvetica", 8)
-    p.drawCentredString(width / 2, y, "PLAY • EAT • REPEAT")
+    p.drawCentredString(width/2, y, "PLAY • EAT • REPEAT")
     y -= 12
 
-    p.line(5, y, width - 5, y)
+    p.line(5, y, width-5, y)
     y -= 12
 
-    # ---------- BILL INFO ----------
+    # ✅ Bill Info
     p.setFont("Helvetica", 8)
-    print(bill,'bill')
-    p.drawString(5, y, f"Bill No: {bill.bill_no} , ")
+    p.drawString(5, y, f"Bill No: {paid_bill.bill_no}")
     y -= 10
-    p.drawString(5, y, f"Date: {localtime(bill.created_at).strftime('%d-%m-%Y %H:%M')}")
+    p.drawString(5, y, f"Date: {localtime(paid_bill.created_at).strftime('%d-%m-%Y %I:%M %p')}")
     y -= 10
-    p.drawString(5, y, f"Category: {bill.bill_category}")
+
+    # ✅ Category + Paid status
+    cat = "EMPTY"
+    has_food = paid_bill.billitem_set.filter(category="FOOD").exists()
+    has_game = paid_bill.billitem_set.filter(category="GAME").exists()
+    has_combo = paid_bill.billitem_set.filter(category="COMBO").exists()
+    if has_combo or (has_food and has_game):
+        cat = "BOTH"
+    elif has_food:
+        cat = "FOOD"
+    elif has_game:
+        cat = "GAME"
+
+    p.drawString(5, y, f"Category: {cat}")
+    y -= 10
+    p.drawString(5, y, f"Status: {'PAID' if paid_bill.is_paid else 'OPEN'}")
+    y -= 10
+
+    # ✅ Customer info
+    if paid_bill.customer:
+        p.drawString(5, y, f"Customer: {paid_bill.customer.name}")
+        y -= 10
+        p.drawString(5, y, f"Email: {paid_bill.customer.email}")
+        y -= 10
+        if paid_bill.customer.phone:
+            p.drawString(5, y, f"Phone: {paid_bill.customer.phone}")
+            y -= 10
+
+    p.line(5, y, width-5, y)
     y -= 12
 
-    p.line(5, y, width - 5, y)
-    y -= 12
-
-    # ---------- TABLE HEADER ----------
-    p.setFont("Helvetica-Bold", 8)
-
+    # ✅ Table Header
     item_x = 5
-    qty_x = width - 45   # shift qty (adjust if you want)
+    qty_x = width - 50
     amt_x = width - 5
 
-    p.drawString(item_x, y, "Item (Time)")
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(item_x, y, "Item")
     p.drawRightString(qty_x, y, "Qty")
     p.drawRightString(amt_x, y, "Amt")
     y -= 10
 
-    p.line(5, y, width - 5, y)
+    p.line(5, y, width-5, y)
     y -= 8
 
-    # ---------- ITEMS ----------
+    # ✅ Items
     p.setFont("Helvetica", 8)
-    max_chars = 38
+    max_chars = 44
 
-    for item in bill.billitem_set.all():
-        print(item,'item')
-        name = item.item_name
-        qty_text = f"{item.quantity} hr" if item.category == "GAME" else str(item.quantity)
-        amt_text = f"Rs. {int(item.total)}"
+    for it in paid_bill.billitem_set.all().order_by("created_at"):
+        name = it.item_name
 
+        # ✅ game qty display
+        qty_text = f"{it.quantity} hr" if it.category == "GAME" else str(it.quantity)
+        amt_text = f"Rs. {int(it.total)}"
+
+        # ✅ wrap line
         line1 = name[:max_chars]
-        line2 = name[max_chars:max_chars * 2] if len(name) > max_chars else ""
+        line2 = name[max_chars:max_chars*2] if len(name) > max_chars else ""
 
         p.drawString(item_x, y, line1)
         p.drawRightString(qty_x, y, qty_text)
@@ -489,26 +554,53 @@ def print_bill(request):
             p.drawString(item_x, y, line2)
             y -= 10
 
-    y -= 5
-    p.line(5, y, width - 5, y)
+    y -= 4
+    p.line(5, y, width-5, y)
     y -= 12
-    # Discount
-    # game_disc 
-    # food_disc 
 
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(10, y, "Discount")
-    p.drawRightString(amt_x, y, f"Discount on your Gaming {int(game_disc)}")
-    # p.drawRightString(amt_x, y, f"Food Discount Rs. {int(food_disc)}")
-    y -= 40
-    # ---------- TOTAL ----------
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(5, y, "TOTAL")
-    p.drawRightString(amt_x, y, f"Rs. {int(bill.grand_total)}")
-    y -= 18
+    # ✅ Subtotals + Discounts
+    totals = recalc_bill(paid_bill)
 
+    p.setFont("Helvetica", 8)
+    p.drawString(5, y, f"Food Subtotal")
+    p.drawRightString(amt_x, y, f"Rs. {int(totals['food_total'])}")
+    y -= 10
+
+    p.drawString(5, y, f"Game Subtotal")
+    p.drawRightString(amt_x, y, f"Rs. {int(totals['game_total'])}")
+    y -= 10
+
+    p.drawString(5, y, f"Combo Subtotal")
+    p.drawRightString(amt_x, y, f"Rs. {int(totals['combo_total'])}")
+    y -= 10
+
+    # ✅ Discounts
+    if paid_bill.food_discount_percent:
+        p.drawString(5, y, f"Food Discount ({paid_bill.food_discount_percent}%)")
+        p.drawRightString(amt_x, y, f"- Rs. {int(totals['food_discount'])}")
+        y -= 10
+
+    if paid_bill.game_discount_amount:
+        p.drawString(5, y, "Game Discount")
+        p.drawRightString(amt_x, y, f"- Rs. {int(totals['game_discount'])}")
+        y -= 10
+
+    p.line(5, y, width-5, y)
+    y -= 14
+
+    # ✅ Grand total
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(5, y, "GRAND TOTAL")
+    p.drawRightString(amt_x, y, f"Rs. {int(paid_bill.grand_total)}")
+    y -= 20
+
+    # ✅ Footer
     p.setFont("Helvetica", 7)
-    p.drawCentredString(width / 2, y, "Thank You! Visit Again")
+    p.drawCentredString(width/2, y, "Thank you for visiting BREAKROOM")
+    y -= 10
+    p.drawCentredString(width/2, y, "Contact: +91-XXXXXXXXXX  |  Instagram: @breakroom")
+    y -= 10
+    p.drawCentredString(width/2, y, "Please visit again!")
 
     p.showPage()
     p.save()
@@ -516,47 +608,287 @@ def print_bill(request):
     pdf_data = buffer.getvalue()
     buffer.close()
 
-    # ✅ email only when paid
-    if bill.is_paid and bill.customer_email:
-        email = EmailMessage(
-            subject=f"BREAKROOM Receipt – {bill.bill_no}",
-            body=f"Thank you! Your total was Rs. {int(bill.grand_total)}.\nReceipt attached.",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[bill.customer_email],
-        )
-        email.attach(f"{bill.bill_no}.pdf", pdf_data, "application/pdf")
-        email.send()
+    # ✅ Email if available
+    if paid_bill.customer and paid_bill.customer.email:
+        try:
+            email = EmailMessage(
+                subject=f"BREAKROOM Receipt – {paid_bill.bill_no}",
+                body=f"Thank you! Total: Rs. {int(paid_bill.grand_total)}.\nReceipt attached.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[paid_bill.customer.email],
+            )
+            email.attach(f"{paid_bill.bill_no}.pdf", pdf_data, "application/pdf")
+            email.send()
+        except:
+            pass
 
     response = HttpResponse(pdf_data, content_type="application/pdf")
-    response["Content-Disposition"] = f'inline; filename="{bill.bill_no}.pdf"'
+    response["Content-Disposition"] = f'inline; filename="{paid_bill.bill_no}.pdf"'
     return response
 
-
-@login_required
-def new_bill(request):
-    request.session.pop("bill_id", None)
-    request.session["food_disc_percent"] = 0
-    request.session["game_disc_amount"] = 0
-    return redirect("billing:billing")
-
-
+# ------------------ DASHBOARD ------------------
 @login_required
 def dashboard(request):
+    today = now().date()
+
     total_sales = Bill.objects.filter(is_paid=True).aggregate(Sum("grand_total"))["grand_total__sum"] or 0
-    total_bills = Bill.objects.filter(is_paid=True).count()
+    today_sales = Bill.objects.filter(is_paid=True, created_at__date=today).aggregate(Sum("grand_total"))["grand_total__sum"] or 0
+
+    paid_bills = Bill.objects.filter(is_paid=True).count()
+    unpaid_bills = Bill.objects.filter(is_paid=False).count()
 
     total_customers = Customer.objects.count()
-    returning_customers = Customer.objects.filter(visits__gte=2).count()
 
-    today = now().date()
-    today_sales = Bill.objects.filter(is_paid=True, created_at__date=today).aggregate(Sum("grand_total"))["grand_total__sum"] or 0
-    today_bills = Bill.objects.filter(is_paid=True, created_at__date=today).count()
+    recent_bills = Bill.objects.order_by("-created_at")[:10]
+    recent_items = BillItem.objects.order_by("-created_at")[:20]
 
-    return render(request, "billing/dashboard.html", {
+    return render(request, "pos/dashboard.html", {
         "total_sales": total_sales,
-        "total_bills": total_bills,
-        "total_customers": total_customers,
-        "returning_customers": returning_customers,
         "today_sales": today_sales,
-        "today_bills": today_bills,
+        "paid_bills": paid_bills,
+        "unpaid_bills": unpaid_bills,
+        "total_customers": total_customers,
+        "recent_bills": recent_bills,
+        "recent_items": recent_items,
+    })
+
+
+@login_required
+def add_food_quick(request):
+    bill = get_current_bill(request)
+
+    if not bill.customer:
+        messages.error(request, "❌ Please save Customer first.")
+        return redirect("pos:pos_ui")
+
+    if request.method == "POST":
+        item = request.POST.get("food_item")
+        qty = float(request.POST.get("qty") or 1)
+
+        if item in FOOD_MENU:
+            BillItem.objects.create(
+                bill=bill,
+                category="FOOD",
+                item_name=item,
+                quantity=qty,
+                rate=float(FOOD_MENU[item]),
+            )
+            messages.success(request, f"✅ Added {item}")
+
+    return redirect("pos:pos_ui")
+
+
+@login_required
+def add_combo_quick(request):
+    bill = get_current_bill(request)
+
+    if not bill.customer:
+        messages.error(request, "❌ Please save Customer first.")
+        return redirect("pos:pos_ui")
+
+    if request.method == "POST":
+        combo_name = request.POST.get("combo_name")
+        if combo_name in COMBOS:
+            BillItem.objects.create(
+                bill=bill,
+                category="COMBO",
+                item_name=combo_name,
+                quantity=1,
+                rate=float(COMBOS[combo_name])
+            )
+            messages.success(request, f"✅ Added Combo")
+
+    return redirect("pos:pos_ui")
+
+
+
+@login_required
+def add_pool_quick(request):
+    bill = get_current_bill(request)
+
+    if not bill.customer:
+        messages.error(request, "❌ Please save Customer first.")
+        return redirect("pos:pos_ui")
+
+    if request.method == "POST":
+        duration = request.POST.get("duration")  # 30/60/120/180
+        ft = request.POST.get("from_time")
+        table_pref = request.POST.get("pool_table", "")  # optional
+
+        if not duration or not ft:
+            messages.error(request, "❌ Please select From Time and Duration")
+            return redirect("pos:pos_ui")
+
+        minutes = int(duration)
+        auto_to = add_minutes_to_time(ft, minutes)
+
+        start_t = datetime.strptime(ft, "%H:%M").time()
+        end_t = datetime.strptime(auto_to, "%H:%M").time()
+
+        selected_table, msg = allocate_pool_table(table_pref, start_t, end_t)
+        if not selected_table:
+            messages.error(request, msg)
+            return redirect("pos:pos_ui")
+
+        if msg:
+            messages.warning(request, msg)
+
+        weekend = is_weekend_today()
+        rates = pool_rate_for_time(start_t, weekend)
+        rate = rates.get(duration, 0)
+
+        if rate == 0:
+            messages.error(request, "❌ This duration is not allowed at this timing.")
+            return redirect("pos:pos_ui")
+
+        qty = minutes / 60
+        resource = f"POOL-{selected_table}"
+        name = f"Pool Table {selected_table} ({ft}-{auto_to})"
+
+        BillItem.objects.create(
+            bill=bill,
+            category="GAME",
+            item_name=name,
+            quantity=qty,
+            rate=rate,
+            resource=resource,
+            start_time=start_t,
+            end_time=end_t,
+        )
+
+        messages.success(request, f"✅ Added {name}")
+
+    return redirect("pos:pos_ui")
+
+# ---------- QUICK ADD PS5 ----------
+@login_required
+def add_ps5_quick(request):
+    bill = get_current_bill(request)
+
+    if not bill.customer:
+        messages.error(request, "❌ Please save Customer first.")
+        return redirect("pos:pos_ui")
+
+    if request.method == "POST":
+        tv_size = request.POST.get("tv")  # 65/55
+        controllers = int(request.POST.get("controllers") or 1)
+        duration = request.POST.get("duration")  # 30/60
+        ft = request.POST.get("from_time")
+
+        if not (tv_size and duration and ft):
+            messages.error(request, "❌ PS5 requires TV, Duration and From time")
+            return redirect("pos:pos_ui")
+
+        minutes = int(duration)
+        auto_to = add_minutes_to_time(ft, minutes)
+
+        start_t = datetime.strptime(ft, "%H:%M").time()
+        end_t = datetime.strptime(auto_to, "%H:%M").time()
+
+        resource = "PS5-65" if tv_size == "65" else "PS5-55"
+
+        if is_resource_busy(resource, start_t, end_t):
+            messages.error(request, f"❌ PS5 {tv_size}\" BUSY during {ft}-{auto_to}")
+            return redirect("pos:pos_ui")
+
+        rate = ps5_price(tv_size, controllers, duration)
+        if rate == 0:
+            messages.error(request, "❌ Invalid PS5 selection.")
+            return redirect("pos:pos_ui")
+
+        qty = minutes / 60
+        name = f"PS5 ({tv_size} Inch) ({controllers} Ctrl) ({ft}-{auto_to})"
+
+        BillItem.objects.create(
+            bill=bill,
+            category="GAME",
+            item_name=name,
+            quantity=qty,
+            rate=rate,
+            resource=resource,
+            start_time=start_t,
+            end_time=end_t,
+        )
+
+        messages.success(request, f"✅ Added {name}")
+
+    return redirect("pos:pos_ui")
+
+
+# ---------- REMOVE ITEM ----------
+@login_required
+def remove_item_quick(request, item_id):
+    bill = get_current_bill(request)
+    BillItem.objects.filter(id=item_id, bill=bill).delete()
+    return redirect("pos:pos_ui")
+
+
+# ---------- CUSTOMER SAVE ----------
+@login_required
+def save_customer(request):
+    bill = get_current_bill(request)
+
+    if request.method == "POST":
+        name = request.POST.get("customer_name", "").strip()
+        email = request.POST.get("customer_email", "").strip()
+        phone = request.POST.get("customer_phone", "").strip()
+
+        if not name or not email:
+            messages.error(request, "❌ Name and Email are required.")
+            return redirect("pos:pos_ui")
+
+        cust, created = Customer.objects.get_or_create(
+            email=email,
+            defaults={"name": name, "phone": phone}
+        )
+
+        if not created:
+            cust.name = name
+            if phone:
+                cust.phone = phone
+            cust.save()
+
+        bill.customer = cust
+        bill.save()
+
+        prev_total = cust.total_paid_amount()
+        if prev_total >= 999:
+            messages.success(request, f"🎁 Loyalty Eligible ✅ Previous Paid: Rs. {int(prev_total)}")
+        else:
+            messages.info(request, f"ℹ Loyalty unlocks after Rs.999 previous paid. Current: Rs. {int(prev_total)}")
+
+    return redirect("pos:pos_ui")
+
+def apply_discount_quick(request):
+    bill = get_current_bill(request)
+
+    if not bill.customer:
+        messages.error(request, "❌ Save customer first to apply discount.")
+        return redirect("pos:pos_ui")
+
+    if request.method == "POST":
+        food_disc = float(request.POST.get("food_disc_percent") or 0)
+        game_disc = float(request.POST.get("game_disc_amount") or 0)
+
+        # ✅ loyalty condition
+        if bill.customer.total_paid_amount() < 999 and (food_disc > 0 or game_disc > 0):
+            messages.warning(request, "⚠ Not eligible for loyalty discount (needs Rs.999 previous paid).")
+
+        bill.food_discount_percent = food_disc
+        bill.game_discount_amount = game_disc
+        bill.save()
+
+    return redirect("pos:pos_ui")
+
+@login_required
+def pos_ui(request):
+    bill = get_current_bill(request)
+    totals = recalc_bill(bill)
+
+    return render(request, "pos/pos_main.html", {
+        "bill": bill,
+        "items": bill.billitem_set.all().order_by("created_at"),
+        "totals": totals,
+        "food_menu": FOOD_MENU,
+        "combos": COMBOS,
     })

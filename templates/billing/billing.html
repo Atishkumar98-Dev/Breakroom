@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>BREAKROOM POS</title>
+  <title>BREAKROOM</title>
   <link rel="stylesheet" href="{% static 'billing/style.css' %}">
 </head>
 <body>
@@ -68,20 +68,27 @@
         <option value="1">Table 1</option>
         <option value="2">Table 2</option>
       </select>
-
+      
       <label>Duration</label>
       <select name="pool_duration" id="pool_duration" required>
-        <option value="">Select</option>
-        <option value="30">Half Hour (Rs.150)</option>
-        <option value="60">1 Hour (Rs.250)</option>
-      </select>
+      <option value="">Select</option>
+      <option value="30">30 Min (Rs.150)</option>
+      <option value="60">1 Hour (Rs.250)</option>
+      <option value="90">1.5 Hour (Rs.400)</option>
+      <option value="120">2 Hour (Rs.500)</option>
+      <option value="150">2.5 Hour (Rs.650)</option>
+      <option value="180">3 Hour (Rs.750)</option>
+    </select>
 
+      <label>Slots (How many 30min/1hr blocks)</label>
+<input type="number" name="pool_slots" id="pool_slots" value="1" min="1" required>
+      
       <label>From Time</label>
       <input type="time" name="from_time" id="pool_from" required>
-
+      
       <label>To Time (Auto)</label>
       <input type="time" id="pool_to" disabled>
-
+      
       <button class="btn">➕ Add Pool</button>
     </form>
   </div>
@@ -259,54 +266,54 @@
 
 </div>
 
-
 <script>
-  // ✅ Food price auto-fill (separate field)
-  const foodSelect = document.getElementById("foodSelect");
-  const foodPrice = document.getElementById("foodPrice");
+function addMinutes(time, mins){
+  if(!time) return "";
+  let [h,m] = time.split(":").map(Number);
+  let date = new Date();
+  date.setHours(h);
+  date.setMinutes(m + mins);
+  let hh = String(date.getHours()).padStart(2,"0");
+  let mm = String(date.getMinutes()).padStart(2,"0");
+  return `${hh}:${mm}`;
+}
 
-  foodSelect.addEventListener("change", function(){
-    let selected = foodSelect.options[foodSelect.selectedIndex];
-    let price = selected.getAttribute("data-price");
-    foodPrice.value = price ? price : "";
-  });
+// ✅ POOL auto time (duration × slots)
+const poolFrom = document.getElementById("pool_from");
+const poolTo = document.getElementById("pool_to");
+const poolDur = document.getElementById("pool_duration");
+const poolSlots = document.getElementById("pool_slots");
 
-  // ✅ Auto To-Time logic
-  function addMinutes(time, mins){
-    if(!time) return "";
-    let [h,m] = time.split(":").map(Number);
-    let date = new Date();
-    date.setHours(h);
-    date.setMinutes(m + mins);
-    let hh = String(date.getHours()).padStart(2,"0");
-    let mm = String(date.getMinutes()).padStart(2,"0");
-    return `${hh}:${mm}`;
-  }
+function updatePoolTo(){
+  if(!poolFrom.value || !poolDur.value) return;
+  let per = poolDur.value === "30" ? 30 : 60;
+  let slots = parseInt(poolSlots.value || "1");
+  poolTo.value = addMinutes(poolFrom.value, per * slots);
+}
 
-  // Pool Auto To
-  const poolFrom = document.getElementById("pool_from");
-  const poolTo = document.getElementById("pool_to");
-  const poolDur = document.getElementById("pool_duration");
+poolFrom.addEventListener("change", updatePoolTo);
+poolDur.addEventListener("change", updatePoolTo);
+poolSlots.addEventListener("input", updatePoolTo);
 
-  function updatePoolTo(){
-    let mins = poolDur.value === "30" ? 30 : 60;
-    poolTo.value = addMinutes(poolFrom.value, mins);
-  }
-  poolFrom.addEventListener("change", updatePoolTo);
-  poolDur.addEventListener("change", updatePoolTo);
 
-  // PS5 Auto To
-  const ps5From = document.getElementById("ps5_from");
-  const ps5To = document.getElementById("ps5_to");
-  const ps5Dur = document.getElementById("ps5_duration");
+// ✅ PS5 auto time (duration × slots)
+const ps5From = document.getElementById("ps5_from");
+const ps5To = document.getElementById("ps5_to");
+const ps5Dur = document.getElementById("ps5_duration");
+const ps5Slots = document.getElementById("ps5_slots");
 
-  function updatePs5To(){
-    let mins = ps5Dur.value === "30" ? 30 : 60;
-    ps5To.value = addMinutes(ps5From.value, mins);
-  }
-  ps5From.addEventListener("change", updatePs5To);
-  ps5Dur.addEventListener("change", updatePs5To);
+function updatePs5To(){
+  if(!ps5From.value || !ps5Dur.value) return;
+  let per = ps5Dur.value === "30" ? 30 : 60;
+  let slots = parseInt(ps5Slots.value || "1");
+  ps5To.value = addMinutes(ps5From.value, per * slots);
+}
+
+ps5From.addEventListener("change", updatePs5To);
+ps5Dur.addEventListener("change", updatePs5To);
+ps5Slots.addEventListener("input", updatePs5To);
 </script>
+
 
 </body>
 </html>

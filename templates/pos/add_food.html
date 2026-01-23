@@ -1,0 +1,47 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Add Food</title>
+  <link rel="stylesheet" href="{% static 'pos/style.css' %}">
+</head>
+<body>
+
+<div class="topbar">
+  <a href="{% url 'pos:bill_summary' %}" class="btn dark">⬅ Bill</a>
+  <h2>🍔 Add Food</h2>
+  <span class="billno">{{ bill.bill_no }}</span>
+</div>
+
+<div class="card wide">
+  <form method="post" class="formrow">
+    {% csrf_token %}
+    <label>Food Item</label>
+    <select name="food_item" id="foodSelect" required>
+      <option value="">Select</option>
+      {% for name, price in menu.items %}
+        <option value="{{ name }}" data-price="{{ price }}">{{ name }}</option>
+      {% endfor %}
+    </select>
+
+    <label>Price</label>
+    <input id="foodPrice" type="number" readonly>
+
+    <label>Qty</label>
+    <input name="food_qty" type="number" min="1" value="1" required>
+
+    <button class="btn">➕ Add</button>
+  </form>
+</div>
+
+<script>
+  const foodSelect = document.getElementById("foodSelect");
+  const foodPrice = document.getElementById("foodPrice");
+  foodSelect.addEventListener("change", () => {
+    const opt = foodSelect.options[foodSelect.selectedIndex];
+    foodPrice.value = opt.getAttribute("data-price") || "";
+  });
+</script>
+
+</body>
+</html>

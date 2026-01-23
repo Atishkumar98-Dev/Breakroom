@@ -1,0 +1,252 @@
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:#0b0b0b;
+  color:#fff;
+  font-family:Arial, sans-serif;
+}
+
+/* TOP BAR */
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:16px 28px;
+  background:#070707;
+}
+.brand-logo{
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  border:2px solid #f5c400;
+}
+.title h1{
+  margin:0;
+  font-size:26px;
+  letter-spacing:2px;
+}
+.gold-line{height:3px;background:#f5c400;}
+
+/* MAIN LAYOUT */
+.container{
+  display:grid;
+  grid-template-columns: 1fr 420px;
+  gap:22px;
+  padding:22px;
+}
+
+/* LEFT */
+.left-area{padding:6px;}
+
+/* CUSTOMER */
+.customer-box{
+  border:2px solid #f5c400;
+  background:#101010;
+  border-radius:18px;
+  padding:14px;
+  margin-bottom:14px;
+}
+.cust-form{
+  display:grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap:12px;
+}
+.cust-form input{
+  width:100%;
+  padding:12px;
+  background:#0c0c0c;
+  border:1px solid #333;
+  border-radius:12px;
+  color:#fff;
+}
+.cust-btn{
+  background:#f5c400;
+  color:#000;
+  border:none;
+  border-radius:12px;
+  padding:12px 16px;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+/* TABS */
+.tabs{
+  display:flex;
+  border:2px solid #f5c400;
+  border-radius:50px;
+  overflow:hidden;
+  width:fit-content;
+  background:#101010;
+}
+.tab{
+  padding:12px 26px;
+  background:transparent;
+  border:none;
+  color:white;
+  cursor:pointer;
+  font-weight:bold;
+}
+.tab.active{
+  background:#f5c400;
+  color:black;
+}
+
+.tab-content{display:none;margin-top:18px;}
+.tab-content.active{display:block;}
+
+/* GRIDS */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.grid1{max-width:520px;}
+
+/* CARD */
+.rate-card{
+  border:2px solid #f5c400;
+  background:#101010;
+  border-radius:18px;
+  padding:18px;
+}
+.rate-card h2{
+  margin:0 0 14px;
+  color:#f5c400;
+  font-size:18px;
+}
+.mini{color:#aaa;font-size:12px;margin-top:-4px;}
+
+/* QUICK FORM */
+.quick-form{margin-top:12px;}
+.row{display:flex;gap:10px;margin-bottom:10px;}
+.row input,.row select{
+  flex:1;
+  padding:11px;
+  border-radius:12px;
+  border:1px solid #333;
+  background:#0c0c0c;
+  color:#fff;
+}
+.rate-btn{
+  width:100%;
+  padding:12px;
+  border:none;
+  background:#f5c400;
+  color:#000;
+  border-radius:12px;
+  font-weight:bold;
+  cursor:pointer;
+}
+.rate-btn:hover{opacity:.9;}
+
+/* FOOD GRID */
+.food-grid{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:18px;
+}
+.food-form{margin:0;}
+.food-card{
+  width:100%;
+  text-align:left;
+  border:2px solid #f5c400;
+  background:#101010;
+  border-radius:18px;
+  padding:16px;
+  cursor:pointer;
+  transition:.15s;
+}
+.food-card:hover{transform:translateY(-2px);}
+.food-card h3{margin:0;color:#f5c400;font-size:15px;}
+.food-card p{margin:10px 0 0;color:#fff;font-size:14px;}
+
+/* RIGHT PANEL */
+.right-area{padding:6px;}
+.order-panel{
+  border:2px solid #f5c400;
+  background:#101010;
+  border-radius:18px;
+  padding:18px;
+  position:sticky;
+  top:18px;
+  min-height:630px;
+}
+.order-panel h2{margin:0;color:#f5c400;font-size:20px;}
+.order-items{margin-top:14px;min-height:210px;}
+.empty{text-align:center;color:#888;margin-top:70px;}
+
+.order-item{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  border:1px solid #222;
+  padding:10px;
+  border-radius:14px;
+  margin-bottom:10px;
+}
+.oi-left h5{margin:0;color:#fff;font-size:14px;}
+.oi-left p{margin:6px 0 0;color:#bbb;font-size:12px;line-height:1.35;}
+.rm{text-decoration:none;font-size:16px;}
+
+.discount-block{margin-top:16px;}
+.discount-row2{display:flex;gap:10px;margin-top:10px;}
+.discount-row2 input{
+  flex:1;
+  padding:10px;
+  border-radius:12px;
+  border:1px solid #333;
+  background:#0c0c0c;
+  color:#fff;
+}
+.disc-btn{
+  margin-top:10px;
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:12px;
+  background:#f5c400;
+  color:#000;
+  font-weight:bold;
+  cursor:pointer;
+}
+.sep{border:0;border-top:1px solid #222;margin:18px 0;}
+
+.totals div{
+  display:flex;
+  justify-content:space-between;
+  margin:10px 0;
+}
+.big{color:#f5c400;font-size:22px;}
+
+/* Buttons */
+.generate-btn{
+  width:100%;
+  display:block;
+  text-align:center;
+  text-decoration:none;
+  margin-top:14px;
+  padding:14px;
+  border-radius:14px;
+  background:#846516;
+  color:#000;
+  font-weight:bold;
+}
+.clear-btn{
+  width:100%;
+  display:block;
+  text-align:center;
+  text-decoration:none;
+  margin-top:10px;
+  padding:12px;
+  border-radius:14px;
+  background:#fff;
+  color:#000;
+  font-weight:bold;
+}
+
+/* MESSAGES */
+.toast{margin-bottom:14px;}
+.msg{
+  background:#141414;
+  border:1px solid #222;
+  border-left:5px solid #f5c400;
+  padding:10px 12px;
+  border-radius:14px;
+  margin:8px 0;
+}
