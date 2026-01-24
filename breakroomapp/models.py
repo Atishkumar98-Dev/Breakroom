@@ -16,7 +16,7 @@ class Customer(models.Model):
 
 class Bill(models.Model):
     bill_no = models.CharField(max_length=30, unique=True)
-    customer = models.ForeignKey(Customer, on_delete=models.PROTECT)
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT,null=True)
 
 
     subtotal = models.FloatField(default=0)
@@ -34,6 +34,8 @@ class Bill(models.Model):
 class BillItem(models.Model):
     bill = models.ForeignKey(Bill, on_delete=models.CASCADE)
     category = models.CharField(max_length=10)   # FOOD / GAME / COMBO
+    start_dt = models.DateTimeField(null=True, blank=True)
+    end_dt   = models.DateTimeField(null=True, blank=True)
 
     item_name = models.CharField(max_length=200)
     quantity = models.FloatField(default=1)

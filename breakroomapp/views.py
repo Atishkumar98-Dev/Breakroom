@@ -6,7 +6,7 @@ from django.http import HttpResponse
 from django.utils.timezone import localtime, now
 from django.core.mail import EmailMessage
 from django.db.models import Sum
-
+from django.utils.timezone import make_aware
 from reportlab.lib.pagesizes import mm
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
@@ -33,6 +33,35 @@ def is_weekend_today():
     """ Saturday=5, Sunday=6 """
     return localtime(now()).weekday() in [5, 6]
 
+from django.utils.timezone import localtime, now
+from django.utils.timezone import localtime, now
+
+def is_resource_busy_now(resource):
+    today = localtime(now()).date()
+    current_t = localtime(now()).time()
+
+    items = BillItem.objects.filter(
+        category="GAME",
+        resource=resource,
+        bill__created_at__date=today
+    )
+
+    # ✅ DEBUG
+    print(f"\n[CHECK] Resource={resource} Today={today} Now={current_t} Items={items.count()}")
+
+    for it in items:
+        print("   ->", it.item_name, it.start_time, it.end_time)
+
+        if not it.start_time or not it.end_time:
+            continue
+
+        if it.start_time <= current_t < it.end_time:
+            print("   ✅ BUSY")
+            return True
+
+    print("   ✅ FREE")
+    return False
+
 
 def get_current_bill(request):
     """
@@ -49,24 +78,30 @@ def get_current_bill(request):
     bill = Bill.objects.create(bill_no=generate_bill_no())
     request.session["bill_id"] = bill.id
     return bill
+    
+
 
 def is_resource_busy(resource, start_t, end_t):
     """
-    Checks ALL OPEN (unpaid) bills for overlap of same resource.
+    ✅ Checks overlap on SAME DAY for both PAID & UNPAID bills.
+    Uses Bill.created_at date as 'booking day'.
     """
-    existing = BillItem.objects.filter(
+    today = localtime(now()).date()
+
+    items = BillItem.objects.filter(
         category="GAME",
         resource=resource,
-        bill__is_paid=False
+        bill__created_at__date=today     # ✅ SAME DAY only
     )
 
-    for item in existing:
-        if not item.start_time or not item.end_time:
+    for it in items:
+        if not it.start_time or not it.end_time:
             continue
 
-        # overlap condition
-        if start_t < item.end_time and end_t > item.start_time:
+        # ✅ overlap condition
+        if start_t < it.end_time and end_t > it.start_time:
             return True
+
     return False
 
 def has_overlap(bill, resource, start_t, end_t):
@@ -170,10 +205,15 @@ def bill_summary(request):
     totals = recalc_bill(bill)
 
     # ✅ Availability flags (inside this bill items)
-    pool1_busy = BillItem.objects.filter(bill=bill, resource="POOL-1").exists()
-    pool2_busy = BillItem.objects.filter(bill=bill, resource="POOL-2").exists()
-    ps5_65_busy = BillItem.objects.filter(bill=bill, resource="PS5-65").exists()
-    ps5_55_busy = BillItem.objects.filter(bill=bill, resource="PS5-55").exists()
+    # pool1_busy = BillItem.objects.filter(bill=bill, resource="POOL-1").exists()
+    # pool2_busy = BillItem.objects.filter(bill=bill, resource="POOL-2").exists()
+    # ps5_65_busy = BillItem.objects.filter(bill=bill, resource="PS5-65").exists()
+    # ps5_55_busy = BillItem.objects.filter(bill=bill, resource="PS5-55").exists()
+    pool1_busy = is_resource_busy_now("POOL-1")
+    pool2_busy = is_resource_busy_now("POOL-2")
+    ps5_65_busy = is_resource_busy_now("PS5-65")
+    ps5_55_busy = is_resource_busy_now("PS5-55")
+
 
     return render(request, "pos/bill_summary.html", {
         "bill": bill,
@@ -181,7 +221,7 @@ def bill_summary(request):
         "totals": totals,
         "category": bill_category(bill),
 
-        "pool1_busy": pool1_busy,
+       "pool1_busy": pool1_busy,
         "pool2_busy": pool2_busy,
         "ps5_65_busy": ps5_65_busy,
         "ps5_55_busy": ps5_55_busy,
@@ -214,49 +254,20 @@ def add_food(request):
     })
 
 def allocate_pool_table(preferred_table, start_t, end_t):
-    """
-    ✅ Smart Pool Allocation:
-    - Checks availability globally across ALL open bills (unpaid)
-    - If preferred table is busy, tries the other table
-    - Returns (selected_table, status_message)
-    - If no table available, returns (None, "no_table")
-    """
-
-    def is_resource_busy(resource):
-        # ✅ GLOBAL check: all OPEN bills
-        existing = BillItem.objects.filter(
-            category="GAME",
-            resource=resource,
-            bill__is_paid=False
-        )
-
-        for item in existing:
-            if not item.start_time or not item.end_time:
-                continue
-
-            # ✅ overlap condition
-            if start_t < item.end_time and end_t > item.start_time:
-                return True
-
-        return False
-
-    # ✅ decide table order
     if preferred_table in ["1", "2"]:
         try_order = [preferred_table, "2" if preferred_table == "1" else "1"]
     else:
-        try_order = ["1", "2"]  # default order
+        try_order = ["1", "2"]
 
-    # ✅ find available table
     for t in try_order:
-        resource = f"POOL-{t}"
-        if not is_resource_busy(resource):
-            # ✅ found free
+        res = f"POOL-{t}"
+        if not is_resource_busy(res, start_t, end_t):
             if preferred_table and t != preferred_table:
-                return t, f"⚠ Table {preferred_table} is busy. Try Table {t} ✅"
+                return t, f"⚠ Table {preferred_table} is busy. Booking Table {t} ✅"
             return t, None
 
-    # ❌ none free
     return None, "❌ No Pool Table Available in the given time. Please wait in Waiting Area 🪑"
+
 
 # ------------------ ADD POOL ------------------
 @login_required
@@ -288,11 +299,12 @@ def add_pool(request):
 
             weekend = is_weekend_today()
             rates = pool_rate_for_time(start_t, weekend)
-
+            print(duration,rates,'duration')
             rate = rates.get(duration, 0)
+            print(rate,'rate')
             if rate == 0:
                 messages.error(request, "❌ Duration not available for selected time slot.")
-                return redirect("billing:add_pool")
+                return redirect("pos:add_pool")
 
             qty = minutes / 60
             resource = f"POOL-{selected_table}"
@@ -303,6 +315,10 @@ def add_pool(request):
                 return redirect("pos:add_pool")
 
             name = f"Pool Table {selected_table} ({ft}-{auto_to})"
+            today = localtime(now()).date()
+
+            start_dt = make_aware(datetime.combine(today, datetime.strptime(ft, "%H:%M").time()))
+            end_dt   = make_aware(datetime.combine(today, datetime.strptime(auto_to, "%H:%M").time()))
 
 
             BillItem.objects.create(
@@ -314,6 +330,8 @@ def add_pool(request):
                 resource=resource,
                 start_time=start_t,
                 end_time=end_t,
+                start_dt=start_dt,
+                end_dt=end_dt,
             )
             messages.success(request, f"✅ Added {name}")
 
