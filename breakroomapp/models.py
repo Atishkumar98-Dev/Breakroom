@@ -22,6 +22,7 @@ class Bill(models.Model):
     subtotal = models.FloatField(default=0)
     food_discount_percent = models.FloatField(default=0)
     game_discount_amount = models.FloatField(default=0)
+    Overall_Discount_percent = models.FloatField(default=0)
     grand_total = models.FloatField(default=0)
 
     is_paid = models.BooleanField(default=False)

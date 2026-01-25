@@ -86,11 +86,11 @@
   {% csrf_token %}
   <input type="hidden" name="action" value="apply_discount">
 
-  <label>Food Discount (%)</label>
-  <input type="number" name="food_disc_percent" value="{{ bill.food_discount_percent }}">
+  <label>Discount (%)</label>
+  <input type="number" name="discount_percent" value="">
 
-  <label>Gaming Discount (Rs.)</label>
-  <input type="number" name="game_disc_amount" value="{{ bill.game_discount_amount }}">
+  <!-- <label>Gaming Discount (Rs.)</label>
+  <input type="number" name="game_disc_amount" value="{{ bill.game_discount_amount }}"> -->
 
   <button class="btn">✅ Apply</button>
 </form>
@@ -102,11 +102,11 @@
     <hr>
 
     <div class="summary">
-      <p>Food Total <span>Rs. {{ totals.food_total }}</span></p>
-      <p>Game Total <span>Rs. {{ totals.game_total }}</span></p>
-      <p>Combo Total <span>Rs. {{ totals.combo_total }}</span></p>
-      <p>Food Discount <span>- Rs. {{ totals.food_discount }}</span></p>
-      <p>Game Discount <span>- Rs. {{ totals.game_discount }}</span></p>
+      <p>Discount <span>Rs. {{ totals.discount_amount }}</span></p>
+      <!-- <p>Game Total <span>Rs. {{ totals.game_total }}</span></p>
+      <p>Combo Total <span>Rs. {{ totals.combo_total }}</span></p> -->
+      <!-- <p>Discount <span>- Rs. {{ totals.Overall_Discount_percent }}</span></p> -->
+      <!-- <p>Game Discount <span>- Rs. {{ totals.game_discount }}</span></p> -->
       <div class="grand">
         <b>Total</b>
         <b>Rs. {{ totals.grand_total }}</b>

@@ -192,8 +192,10 @@ def bill_summary(request):
             if not bill.customer:
                 messages.error(request, "❌ Please save Customer details first to apply discount.")
                 return redirect("billing:bill_summary")
-            bill.food_discount_percent = float(request.POST.get("food_disc_percent") or 0)
-            bill.game_discount_amount = float(request.POST.get("game_disc_amount") or 0)
+            discount = float(request.POST.get("discount_percent") or 0)
+            print(discount,'PRT')
+            bill.Overall_Discount_percent = discount
+            # bill.game_discount_amount = float(request.POST.get("game_disc_amount") or 0)
             bill.save()
 
             if bill.customer and bill.customer.total_paid_amount() < 999:
@@ -580,13 +582,13 @@ def print_bill(request):
     totals = recalc_bill(paid_bill)
 
     p.setFont("Helvetica", 8)
-    p.drawString(5, y, f"Food Subtotal")
-    p.drawRightString(amt_x, y, f"Rs. {int(totals['food_total'])}")
+    p.drawString(5, y, f"Discount % ")
+    p.drawRightString(amt_x, y, f"Rs. {int(totals['Percent_Discount'])}")
     y -= 10
 
-    p.drawString(5, y, f"Game Subtotal")
-    p.drawRightString(amt_x, y, f"Rs. {int(totals['game_total'])}")
-    y -= 10
+    # p.drawString(5, y, f"Game Subtotal")
+    # p.drawRightString(amt_x, y, f"Rs. {int(totals['game_total'])}")
+    # y -= 10
 
     p.drawString(5, y, f"Combo Subtotal")
     p.drawRightString(amt_x, y, f"Rs. {int(totals['combo_total'])}")
