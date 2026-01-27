@@ -42,9 +42,9 @@ app_name = "pos"
 urlpatterns = [
     # path("", views.pos_ui, name="pos_ui"),
     path("", views.choose_zone, name="choose_zone"),
-
+    path("bill/new/", views.new_bill, name="new_bill"),
     path("save-customer/", views.save_customer, name="save_customer"),
-
+    path("bill/switch/<int:bill_id>/", views.switch_bill, name="switch_bill"),
     path("add-food/", views.add_food_quick, name="add_food_quick"),
     path("add-combo/", views.add_combo_quick, name="add_combo_quick"),
 

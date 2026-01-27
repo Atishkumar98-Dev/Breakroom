@@ -18,7 +18,7 @@ from .models import Bill, BillItem, Customer
 from .utils import generate_bill_no, recalc_bill
 
 # ✅ Import ALL rates & menu from rates.py
-from .rates import FOOD_MENU, COMBOS, pool_rate_for_time, ps5_price
+from .rates import FOOD_MENU, COMBOS,DRINKS, pool_rate_for_time, ps5_price
 
 
 # ------------------ HELPERS ------------------
@@ -152,7 +152,7 @@ def choose_zone(request):
 @login_required
 def bill_summary(request):
     bill = get_current_bill(request)
-
+    pending_bills = Bill.objects.filter(is_paid=False).order_by("-created_at")
     if request.method == "POST":
         action = request.POST.get("action")
 
@@ -188,15 +188,21 @@ def bill_summary(request):
                 messages.info(request, f"ℹ Loyalty rule: needs Rs.999 previous paid. Current: Rs. {int(prev_total)}")
 
         # ✅ Apply discounts
-        elif action == "apply_discount":
-            if not bill.customer:
-                messages.error(request, "❌ Please save Customer details first to apply discount.")
-                return redirect("billing:bill_summary")
-            discount = float(request.POST.get("discount_percent") or 0)
-            print(discount,'PRT')
-            bill.Overall_Discount_percent = discount
-            # bill.game_discount_amount = float(request.POST.get("game_disc_amount") or 0)
+        if request.POST.get("action") == "apply_discount":
+            discount_type = request.POST.get("discount_type")
+            discount_percent = float(request.POST.get("discount_percent", 0))
+
+            if discount_type == "FOOD":
+                bill.food_discount_percent = discount_percent
+
+            elif discount_type == "GAME":
+                bill.game_discount_amount = discount_percent
+
+            elif discount_type == "OVERALL":
+                bill.Overall_Discount_percent = discount_percent
+
             bill.save()
+            recalc_bill(bill)
 
             if bill.customer and bill.customer.total_paid_amount() < 999:
                 messages.warning(request, "⚠ Not eligible for loyalty discount (needs Rs.999 previous paid).")
@@ -222,15 +228,26 @@ def bill_summary(request):
         "items": bill.billitem_set.all().order_by("created_at"),
         "totals": totals,
         "category": bill_category(bill),
-
-       "pool1_busy": pool1_busy,
+        "pool1_busy": pool1_busy,
         "pool2_busy": pool2_busy,
         "ps5_65_busy": ps5_65_busy,
         "ps5_55_busy": ps5_55_busy,
+        "pending_bills": pending_bills, 
     })
 
+@login_required
+def switch_bill(request, bill_id):
+    bill = Bill.objects.filter(id=bill_id, is_paid=False).first()
 
+    if not bill:
+        messages.error(request, "❌ Pending bill not found!")
+        return redirect("pos:bill_summary")
+
+    request.session["bill_id"] = bill.id
+    messages.success(request, f"✅ Switched to {bill.bill_no}")
+    return redirect("pos:bill_summary")
 # ------------------ ADD FOOD ------------------
+@login_required
 @login_required
 def add_food(request):
     bill = get_current_bill(request)
@@ -240,19 +257,36 @@ def add_food(request):
         qty = request.POST.get("food_qty")
 
         if item and qty:
+
+            # ✅ DRINKS (no discount)
+            if item in DRINKS:
+                category = "DRINKS"
+                rate = DRINKS.get(item, 0)
+                discountable = False
+
+            # ✅ FOOD with tuple format
+            else:
+                category = "FOOD"
+                rate = FOOD_MENU.get(item, ("", 0))  # ✅ price from tuple
+                discountable = True
+
             BillItem.objects.create(
                 bill=bill,
-                category="FOOD",
+                category=category,
                 item_name=item,
                 quantity=float(qty),
-                rate=float(FOOD_MENU.get(item, 0)),
+                rate=float(rate),
+                is_discountable=discountable
             )
+
             messages.success(request, f"✅ Added {item}")
+
         return redirect("pos:bill_summary")
 
     return render(request, "pos/add_food.html", {
         "bill": bill,
-        "menu": FOOD_MENU
+        "menu": FOOD_MENU,
+        "drinks": DRINKS
     })
 
 def allocate_pool_table(preferred_table, start_t, end_t):
@@ -449,7 +483,7 @@ def mark_paid(request):
 
 
 # ------------------ PRINT BILL (PDF + EMAIL) ------------------
-@login_required
+
 @login_required
 def print_bill(request):
     paid_bill = Bill.objects.filter(is_paid=True).order_by("-created_at").first()
@@ -485,7 +519,7 @@ def print_bill(request):
     # ✅ Header logo
     if os.path.exists(logo_path):
         logo_img = ImageReader(logo_path)
-        p.drawImage(logo_img, width/2 - 20, y - 38, 40, 40, mask="auto")
+        p.drawImage(logo_img, width/2 - 20, y - 28, 40, 40, mask="auto")
         y -= 48
 
     p.setFont("Helvetica-Bold", 13)
@@ -581,28 +615,51 @@ def print_bill(request):
     # ✅ Subtotals + Discounts
     totals = recalc_bill(paid_bill)
 
+    
     p.setFont("Helvetica", 8)
-    p.drawString(5, y, f"Discount % ")
-    p.drawRightString(amt_x, y, f"Rs. {int(totals['Percent_Discount'])}")
+
+    # ✅ Show subtotals
+    p.drawString(5, y, "Food Subtotal")
+    p.drawRightString(amt_x, y, f"Rs. {int(totals.get('food_total', 0))}")
     y -= 10
 
-    # p.drawString(5, y, f"Game Subtotal")
-    # p.drawRightString(amt_x, y, f"Rs. {int(totals['game_total'])}")
-    # y -= 10
-
-    p.drawString(5, y, f"Combo Subtotal")
-    p.drawRightString(amt_x, y, f"Rs. {int(totals['combo_total'])}")
+    p.drawString(5, y, "Drinks Subtotal")
+    p.drawRightString(amt_x, y, f"Rs. {int(totals.get('drinks_total', 0))}")
     y -= 10
 
-    # ✅ Discounts
-    if paid_bill.food_discount_percent:
+    p.drawString(5, y, "Game Subtotal")
+    p.drawRightString(amt_x, y, f"Rs. {int(totals.get('game_total', 0))}")
+    y -= 10
+
+    p.drawString(5, y, "Combo Subtotal")
+    p.drawRightString(amt_x, y, f"Rs. {int(totals.get('combo_total', 0))}")
+    y -= 10
+
+    p.line(5, y, width-5, y)
+    y -= 12
+
+    # ✅ Discount breakdown
+    if totals.get("food_discount_amount", 0) > 0:
         p.drawString(5, y, f"Food Discount ({paid_bill.food_discount_percent}%)")
-        p.drawRightString(amt_x, y, f"- Rs. {int(totals['food_discount'])}")
+        p.drawRightString(amt_x, y, f"- Rs. {int(totals['food_discount_amount'])}")
         y -= 10
 
-    if paid_bill.game_discount_amount:
-        p.drawString(5, y, "Game Discount")
-        p.drawRightString(amt_x, y, f"- Rs. {int(totals['game_discount'])}")
+    if totals.get("game_discount_amount", 0) > 0:
+        p.drawString(5, y, f"Game Discount ({paid_bill.game_discount_amount}%)")
+        p.drawRightString(amt_x, y, f"- Rs. {int(totals['game_discount_amount'])}")
+        y -= 10
+
+    if totals.get("overall_discount_amount", 0) > 0:
+        p.drawString(5, y, f"Overall Discount ({paid_bill.Overall_Discount_percent}%)")
+        p.drawRightString(amt_x, y, f"- Rs. {int(totals['overall_discount_amount'])}")
+        y -= 10
+
+    # ✅ Total Discount
+    if totals.get("total_discount", 0) > 0:
+        p.line(5, y, width-5, y)
+        y -= 12
+        p.drawString(5, y, "Total Discount")
+        p.drawRightString(amt_x, y, f"- Rs. {int(totals['total_discount'])}")
         y -= 10
 
     p.line(5, y, width-5, y)
@@ -618,7 +675,7 @@ def print_bill(request):
     p.setFont("Helvetica", 7)
     p.drawCentredString(width/2, y, "Thank you for visiting BREAKROOM")
     y -= 10
-    p.drawCentredString(width/2, y, "Contact: +91-XXXXXXXXXX  |  Instagram: @breakroom")
+    p.drawCentredString(width/2, y, "Contact: +91-8422902750  | For updates follow us on Instagram : @breakroom_08")
     y -= 10
     p.drawCentredString(width/2, y, "Please visit again!")
 
@@ -650,9 +707,10 @@ def print_bill(request):
 @login_required
 def dashboard(request):
     today = now().date()
-
+    print('today',today)
     total_sales = Bill.objects.filter(is_paid=True).aggregate(Sum("grand_total"))["grand_total__sum"] or 0
     today_sales = Bill.objects.filter(is_paid=True, created_at__date=today).aggregate(Sum("grand_total"))["grand_total__sum"] or 0
+    print(today_sales,'today_salestoday_salestoday_salestoday_sales')
 
     paid_bills = Bill.objects.filter(is_paid=True).count()
     unpaid_bills = Bill.objects.filter(is_paid=False).count()
@@ -912,3 +970,11 @@ def pos_ui(request):
         "food_menu": FOOD_MENU,
         "combos": COMBOS,
     })
+
+
+@login_required
+def new_bill(request):
+    bill = Bill.objects.create(bill_no=generate_bill_no())
+    request.session["bill_id"] = bill.id
+    messages.success(request, f"✅ New Bill Created: {bill.bill_no}")
+    return redirect("pos:bill_summary")

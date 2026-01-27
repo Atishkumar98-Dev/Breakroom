@@ -37,7 +37,7 @@ class BillItem(models.Model):
     category = models.CharField(max_length=10)   # FOOD / GAME / COMBO
     start_dt = models.DateTimeField(null=True, blank=True)
     end_dt   = models.DateTimeField(null=True, blank=True)
-
+    is_discountable = models.BooleanField(default=True)
     item_name = models.CharField(max_length=200)
     quantity = models.FloatField(default=1)
     rate = models.FloatField(default=0)

@@ -22,6 +22,10 @@
       {% for name, price in menu.items %}
         <option value="{{ name }}" data-price="{{ price }}">{{ name }}</option>
       {% endfor %}
+
+      {% for name, price in drinks.items %}
+        <option value="{{ name }}" data-price="{{ price }}">{{ name }}</option>
+      {% endfor %}
     </select>
 
     <label>Price</label>
