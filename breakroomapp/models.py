@@ -1,5 +1,92 @@
 from django.db import models
 
+class Category(models.Model):
+    name = models.CharField(max_length=120,null=True)
+
+    def __str__(self):
+        return self.name
+
+SUBCATEGORY_CHOICES = [
+    ("FRIES", "Fries"),
+    ("MOMOS", "Momos"),
+    ("DIPS", "Dips"),
+    ("BEVERAGES", "Beverages"),
+    ("COLD_DRINKS", "Cold Drinks"),
+    ("ICE_CREAMS", "Ice Creams"),
+]
+
+
+from django.utils.text import slugify
+
+
+class SubCategory(models.Model):
+
+    category = models.ForeignKey(
+        Category,
+        related_name="subcategories",
+        on_delete=models.CASCADE,null=True,
+    )
+
+    name = models.CharField(max_length=120)
+
+    slug = models.SlugField(blank=True)
+    
+    def save(self, *args, **kwargs):
+
+        if not self.slug:
+            self.slug = slugify(self.name)
+
+        super().save(*args, **kwargs)
+
+class Product(models.Model):
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        related_name="products",null=True
+    )
+    subcategory = models.ForeignKey(
+    SubCategory,
+    null=True,
+    blank=True,
+    related_name="products",
+    on_delete=models.SET_NULL
+)
+
+    name = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=8, decimal_places=2)
+    sku = models.CharField(max_length=100, unique=True)
+
+    is_available = models.BooleanField(default=True)
+
+    # ⭐ ADD THIS
+    is_discountable = models.BooleanField(
+        default=True,
+        help_text="Uncheck if discounts should NOT apply to this product."
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} (₹{self.price})"
+    
+
+
+class Inventory(models.Model):
+    product = models.OneToOneField(
+        Product,
+        on_delete=models.CASCADE
+    )
+
+    stock = models.IntegerField(default=0)
+
+    low_stock_alert = models.IntegerField(default=5)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.product.name} - {self.stock}"
+
+
 class Customer(models.Model):
     name = models.CharField(max_length=120)
     email = models.EmailField(unique=True)
@@ -34,7 +121,13 @@ class Bill(models.Model):
 
 class BillItem(models.Model):
     bill = models.ForeignKey(Bill, on_delete=models.CASCADE)
-    category = models.CharField(max_length=10)   # FOOD / GAME / COMBO
+    product = models.ForeignKey(   # ✅ ADD THIS
+        Product,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    category = models.CharField(max_length=10, null=True)   # FOOD / GAME / COMBO
     start_dt = models.DateTimeField(null=True, blank=True)
     end_dt   = models.DateTimeField(null=True, blank=True)
     is_discountable = models.BooleanField(default=True)
@@ -49,7 +142,7 @@ class BillItem(models.Model):
     end_time = models.TimeField(blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
-
+    
     def save(self, *args, **kwargs):
         # Food -> qty*rate
         if self.category == "FOOD":
@@ -59,3 +152,5 @@ class BillItem(models.Model):
             self.total = self.rate
 
         super().save(*args, **kwargs)
+
+

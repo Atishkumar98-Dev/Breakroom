@@ -10,11 +10,11 @@ from django.utils.timezone import make_aware
 from reportlab.lib.pagesizes import mm
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
-
+from decimal import Decimal
 import io, os
 from datetime import datetime, timedelta
-
-from .models import Bill, BillItem, Customer
+import json
+from .models import Bill, BillItem, Customer , Product, Category, Inventory
 from .utils import generate_bill_no, recalc_bill
 
 # ✅ Import ALL rates & menu from rates.py
@@ -247,46 +247,66 @@ def switch_bill(request, bill_id):
     messages.success(request, f"✅ Switched to {bill.bill_no}")
     return redirect("pos:bill_summary")
 # ------------------ ADD FOOD ------------------
-@login_required
+
+
 @login_required
 def add_food(request):
     bill = get_current_bill(request)
 
+    # ✅ HANDLE CART POST
     if request.method == "POST":
-        item = request.POST.get("food_item")
-        qty = request.POST.get("food_qty")
 
-        if item and qty:
+        cart_data = request.POST.get("cart_data")
 
-            # ✅ DRINKS (no discount)
-            if item in DRINKS:
-                category = "DRINKS"
-                rate = DRINKS.get(item, 0)
-                discountable = False
+        if not cart_data:
+            messages.error(request, "Cart is empty!")
+            return redirect("pos:add_food")
 
-            # ✅ FOOD with tuple format
-            else:
-                category = "FOOD"
-                rate = FOOD_MENU.get(item, ("", 0))  # ✅ price from tuple
-                discountable = True
+        cart = json.loads(cart_data)
+
+        for pid, item in cart.items():
+
+            try:
+                product = Product.objects.select_related(
+                    "inventory"
+                ).get(id=int(pid), is_available=True)
+            except Product.DoesNotExist:
+                continue
+
+            qty = Decimal(str(item["qty"]))
+
+            # ⭐ OPTIONAL STOCK CHECK
+            if hasattr(product, "inventory"):
+                if product.inventory.stock < qty:
+                    messages.error(
+                        request,
+                        f"Only {product.inventory.stock} left for {product.name}"
+                    )
+                    continue
 
             BillItem.objects.create(
                 bill=bill,
-                category=category,
-                item_name=item,
-                quantity=float(qty),
-                rate=float(rate),
-                is_discountable=discountable
+                product=product,
+                category="FOOD",
+                item_name=product.name,
+                quantity=qty,
+                rate=product.price,
             )
 
-            messages.success(request, f"✅ Added {item}")
+        recalc_bill(bill)
 
+        messages.success(request, "Items added ✅")
         return redirect("pos:bill_summary")
+
+    # ✅ LOAD FULL TREE
+    categories = Category.objects.prefetch_related(
+        "subcategories__products__inventory",
+        "products__inventory"
+    ).distinct()
 
     return render(request, "pos/add_food.html", {
         "bill": bill,
-        "menu": FOOD_MENU,
-        "drinks": DRINKS
+        "categories": categories
     })
 
 def allocate_pool_table(preferred_table, start_t, end_t):

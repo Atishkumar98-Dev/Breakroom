@@ -2,9 +2,62 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Add Food</title>
-  <link rel="stylesheet" href="{% static 'pos/style.css' %}">
+<title>Add Food</title>
+
+<link rel="stylesheet" href="{% static 'pos/style.css' %}">
+
+<style>
+
+.menu-grid{
+    display:flex;
+    flex-direction:column;
+    gap:25px;
+}
+
+.category-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px,1fr));
+    gap:10px;
+}
+
+.food-btn{
+    background:#111;
+    color:#fff;
+    border:none;
+    padding:16px;
+    border-radius:12px;
+    cursor:pointer;
+    font-weight:600;
+}
+
+.food-btn:hover{
+    background:#28a745;
+}
+
+.cart-box{
+    background:#fafafa;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:20px;
+}
+
+.cart-item{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:8px;
+    color: black !important;
+}
+
+.search{
+    width:100%;
+    padding:12px;
+    font-size:16px;
+    margin-bottom:20px;
+}
+
+</style>
 </head>
+
 <body>
 
 <div class="topbar">
@@ -13,38 +66,196 @@
   <span class="billno">{{ bill.bill_no }}</span>
 </div>
 
+
 <div class="card wide">
-  <form method="post" class="formrow">
-    {% csrf_token %}
-    <label>Food Item</label>
-    <select name="food_item" id="foodSelect" required>
-      <option value="">Select</option>
-      {% for name, price in menu.items %}
-        <option value="{{ name }}" data-price="{{ price }}">{{ name }}</option>
-      {% endfor %}
 
-      {% for name, price in drinks.items %}
-        <option value="{{ name }}" data-price="{{ price }}">{{ name }}</option>
-      {% endfor %}
-    </select>
+<form method="post" onsubmit="prepareCart()">
+{% csrf_token %}
 
-    <label>Price</label>
-    <input id="foodPrice" type="number" readonly>
+<input type="hidden" name="cart_data" id="cartData">
 
-    <label>Qty</label>
-    <input name="food_qty" type="number" min="1" value="1" required>
+<!-- 🔎 SEARCH -->
+<input 
+    type="text"
+    id="foodSearch"
+    class="search"
+    placeholder="🔍 Search anything..."
+    autofocus
+>
 
-    <button class="btn">➕ Add</button>
-  </form>
+<!-- 🛒 CART -->
+<div class="cart-box">
+    <h3>Selected Items</h3>
+    <div id="cart"></div>
+</div>
+
+<button class="btn">✅ Add Items To Bill</button>
+
+<br><br>
+
+<div class="menu-grid">
+
+{% for category in categories %}
+
+<h2>{{category.name}}</h2>
+
+<!-- PRODUCTS WITHOUT SUBCATEGORY -->
+<div class="category-grid">
+
+{% for product in category.products.all %}
+    {% if not product.subcategory and product.is_available %}
+
+    <button 
+        type="button"
+        class="food-btn food-item"
+        data-search="{{product.name|lower}} {{category.name|lower}}"
+        onclick="addToCart('{{product.id}}','{{product.name}}','{{product.price}}')"
+    >
+        {{product.name}}
+        <br>
+        ₹{{product.price}}
+    </button>
+
+    {% endif %}
+{% endfor %}
+
+</div>
+
+
+<!-- SUBCATEGORIES -->
+{% for sub in category.subcategories.all %}
+
+<h3>👉 {{sub.name}}</h3>
+
+<div class="category-grid">
+
+{% for product in sub.products.all %}
+{% if product.is_available %}
+
+<button 
+    type="button"
+    class="food-btn food-item"
+    data-search="{{product.name|lower}} {{sub.name|lower}} {{category.name|lower}}"
+    onclick="addToCart('{{product.id}}','{{product.name}}','{{product.price}}')"
+>
+    {{product.name}}
+    <br>
+    ₹{{product.price}}
+</button>
+
+{% endif %}
+{% endfor %}
+
+</div>
+
+{% endfor %}
+
+{% endfor %}
+
+</div>
+</form>
 </div>
 
 <script>
-  const foodSelect = document.getElementById("foodSelect");
-  const foodPrice = document.getElementById("foodPrice");
-  foodSelect.addEventListener("change", () => {
-    const opt = foodSelect.options[foodSelect.selectedIndex];
-    foodPrice.value = opt.getAttribute("data-price") || "";
-  });
+
+/* ---------------- CART ---------------- */
+
+let cart = {};
+
+function addToCart(id,name,price){
+
+    if(cart[id]){
+        cart[id].qty++;
+    }else{
+        cart[id] = {
+            name:name,
+            price:parseFloat(price),
+            qty:1
+        };
+    }
+
+    renderCart();
+}
+
+function renderCart(){
+
+    let html="";
+    let total=0;
+
+    for(const id in cart){
+
+        let item=cart[id];
+        let subtotal=item.qty*item.price;
+        total+=subtotal;
+
+        html+=`
+        <div class="cart-item">
+            <div>
+                <b>${item.name}</b><br>
+                ₹${item.price} × ${item.qty}
+            </div>
+
+            <div>
+                <button type="button" onclick="changeQty('${id}',-1)">➖</button>
+                <button type="button" onclick="changeQty('${id}',1)">➕</button>
+                <button type="button" onclick="removeItem('${id}')">❌</button>
+            </div>
+        </div>`;
+    }
+
+    html+=`<hr><b>Total: ₹${total}</b>`;
+
+    document.getElementById("cart").innerHTML=html;
+    document.getElementById("cartData").value=JSON.stringify(cart);
+}
+
+function changeQty(id,delta){
+
+    cart[id].qty+=delta;
+
+    if(cart[id].qty<=0){
+        delete cart[id];
+    }
+
+    renderCart();
+}
+
+function removeItem(id){
+    delete cart[id];
+    renderCart();
+}
+
+function prepareCart(){
+
+    if(Object.keys(cart).length===0){
+        alert("Cart empty!");
+        event.preventDefault();
+        return;
+    }
+
+    document.getElementById("cartData").value=
+        JSON.stringify(cart);
+}
+
+
+/* ---------------- SEARCH ---------------- */
+
+document.getElementById("foodSearch")
+.addEventListener("input",function(){
+
+    let term=this.value.toLowerCase();
+
+    document.querySelectorAll(".food-item")
+    .forEach(btn=>{
+
+        btn.style.display=
+            btn.dataset.search.includes(term)
+            ? ""
+            : "none";
+    });
+
+});
+
 </script>
 
 </body>
