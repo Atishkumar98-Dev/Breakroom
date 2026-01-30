@@ -35,7 +35,7 @@
 }
 
 .cart-box{
-    background:#fafafa;
+    /* background:#fafafa; */
     padding:15px;
     border-radius:10px;
     margin-bottom:20px;
@@ -45,7 +45,7 @@
     display:flex;
     justify-content:space-between;
     margin-bottom:8px;
-    color: black !important;
+    color: #f5c400;
 }
 
 .search{
@@ -53,6 +53,10 @@
     padding:12px;
     font-size:16px;
     margin-bottom:20px;
+}
+
+.qty-btn{
+    margin-left:5px;
 }
 
 </style>
@@ -74,18 +78,18 @@
 
 <input type="hidden" name="cart_data" id="cartData">
 
-<!-- 🔎 SEARCH -->
+<!-- SEARCH -->
 <input 
     type="text"
     id="foodSearch"
     class="search"
-    placeholder="🔍 Search anything..."
+    placeholder="🔍 Search food..."
     autofocus
 >
 
-<!-- 🛒 CART -->
+<!-- CART -->
 <div class="cart-box">
-    <h3>Selected Items</h3>
+    <h3>🛒 Selected Items</h3>
     <div id="cart"></div>
 </div>
 
@@ -103,20 +107,22 @@
 <div class="category-grid">
 
 {% for product in category.products.all %}
-    {% if not product.subcategory and product.is_available %}
+{% if not product.subcategory and product.is_available %}
 
-    <button 
-        type="button"
-        class="food-btn food-item"
-        data-search="{{product.name|lower}} {{category.name|lower}}"
-        onclick="addToCart('{{product.id}}','{{product.name}}','{{product.price}}')"
-    >
-        {{product.name}}
-        <br>
-        ₹{{product.price}}
-    </button>
+<button 
+    type="button"
+    class="food-btn food-item"
+    data-id="{{product.id}}"
+    data-name="{{product.name|escapejs}}"
+    data-price="{{product.price}}"
+    data-search="{{product.name|lower}} {{category.name|lower}}"
+>
+    {{product.name}}
+    <br>
+    ₹{{product.price}}
+</button>
 
-    {% endif %}
+{% endif %}
 {% endfor %}
 
 </div>
@@ -135,8 +141,10 @@
 <button 
     type="button"
     class="food-btn food-item"
+    data-id="{{product.id}}"
+    data-name="{{product.name|escapejs}}"
+    data-price="{{product.price}}"
     data-search="{{product.name|lower}} {{sub.name|lower}} {{category.name|lower}}"
-    onclick="addToCart('{{product.id}}','{{product.name}}','{{product.price}}')"
 >
     {{product.name}}
     <br>
@@ -149,16 +157,34 @@
 </div>
 
 {% endfor %}
-
 {% endfor %}
 
 </div>
 </form>
 </div>
 
+
 <script>
 
-/* ---------------- CART ---------------- */
+/* ================= CLICK HANDLER ================= */
+/* ⭐ NO INLINE JS — NEVER BREAKS */
+
+document.addEventListener("click", function(e){
+
+    const btn = e.target.closest(".food-btn");
+
+    if(!btn) return;
+
+    addToCart(
+        btn.dataset.id,
+        btn.dataset.name,
+        btn.dataset.price
+    );
+
+});
+
+
+/* ================= CART ================= */
 
 let cart = {};
 
@@ -176,6 +202,7 @@ function addToCart(id,name,price){
 
     renderCart();
 }
+
 
 function renderCart(){
 
@@ -196,9 +223,14 @@ function renderCart(){
             </div>
 
             <div>
-                <button type="button" onclick="changeQty('${id}',-1)">➖</button>
-                <button type="button" onclick="changeQty('${id}',1)">➕</button>
-                <button type="button" onclick="removeItem('${id}')">❌</button>
+                <button type="button"
+                    onclick="changeQty('${id}',-1)">➖</button>
+
+                <button type="button"
+                    onclick="changeQty('${id}',1)">➕</button>
+
+                <button type="button"
+                    onclick="removeItem('${id}')">❌</button>
             </div>
         </div>`;
     }
@@ -206,8 +238,10 @@ function renderCart(){
     html+=`<hr><b>Total: ₹${total}</b>`;
 
     document.getElementById("cart").innerHTML=html;
-    document.getElementById("cartData").value=JSON.stringify(cart);
+    document.getElementById("cartData").value=
+        JSON.stringify(cart);
 }
+
 
 function changeQty(id,delta){
 
@@ -220,10 +254,12 @@ function changeQty(id,delta){
     renderCart();
 }
 
+
 function removeItem(id){
     delete cart[id];
     renderCart();
 }
+
 
 function prepareCart(){
 
@@ -238,20 +274,20 @@ function prepareCart(){
 }
 
 
-/* ---------------- SEARCH ---------------- */
+/* ================= SAFE SEARCH ================= */
 
 document.getElementById("foodSearch")
-.addEventListener("input",function(){
+.addEventListener("input", function(){
 
-    let term=this.value.toLowerCase();
+    let term = this.value.toLowerCase().trim();
 
     document.querySelectorAll(".food-item")
-    .forEach(btn=>{
+    .forEach(btn => {
 
-        btn.style.display=
-            btn.dataset.search.includes(term)
-            ? ""
-            : "none";
+        const searchable = btn.dataset.search;
+
+        btn.hidden = !searchable.includes(term);
+
     });
 
 });
