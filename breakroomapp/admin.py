@@ -10,10 +10,47 @@ class BillItemInline(admin.TabularInline):
 
 @admin.register(Bill)
 class BillAdmin(admin.ModelAdmin):
-    list_display = ("bill_no", "grand_total", "is_paid", "created_at")
-    list_filter = ("is_paid", "created_at")
-    search_fields = ("bill_no", "customer__email")
+    list_display = (
+        "bill_no",
+        "grand_total",
+        "payment_badge",
+        "paid_upi",
+        "paid_cash",
+        "is_paid",
+        "created_at",
+    )
+
+    list_filter = (
+        "is_paid",
+        "payment_status",
+        "created_at",
+    )
+
+    search_fields = (
+        "bill_no",
+        "customer__email",
+    )
+
+    readonly_fields = (
+        "paid_upi",
+        "paid_cash",
+        "payment_status",
+    )
+
     inlines = [BillItemInline]
+
+    def payment_badge(self, obj):
+        if not obj.is_paid:
+            return format_html("<b style='color:gray;'>UNPAID</b>")
+
+        if obj.payment_status == "FULL":
+            if obj.paid_upi > 0:
+                return format_html("<b style='color:green;'>UPI</b>")
+            return format_html("<b style='color:blue;'>CASH</b>")
+
+        return format_html("<b style='color:orange;'>SPLIT</b>")
+
+    payment_badge.short_description = "Payment Mode"
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):

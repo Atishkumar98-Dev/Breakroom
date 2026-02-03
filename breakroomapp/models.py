@@ -102,9 +102,21 @@ class Customer(models.Model):
 
 
 class Bill(models.Model):
+    PAYMENT_STATUS = (
+        ("FULL", "Full Payment"),
+        ("PARTIAL", "Partial Payment"),
+    )
     bill_no = models.CharField(max_length=30, unique=True)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT,null=True)
+    payment_status = models.CharField(
+        max_length=10,
+        choices=PAYMENT_STATUS,
+        default="FULL"
+    )
+    paid_cash = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    paid_upi = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
+    payment_note = models.CharField(max_length=255, blank=True)
 
     subtotal = models.FloatField(default=0)
     food_discount_percent = models.FloatField(default=0)

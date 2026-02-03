@@ -520,33 +520,52 @@ def print_bill_by_id(request, bill_id):
 
 
 #  New Version
-
 @login_required
 def mark_paid(request):
     bill = get_current_bill(request)
 
-    if not bill.billitem_set.exists():
-        messages.error(request, "❌ Add items first!")
-        return redirect("pos:bill_summary")
+    if request.method == "POST":
+        recalc_bill(bill)
 
-    # ✅ Final calculation
-    recalc_bill(bill)
+        payment_status = request.POST.get("payment_status")
 
-    # ✅ Mark current bill as PAID
-    bill.is_paid = True
-    bill.save()
+        if payment_status == "FULL":
+            mode = request.POST.get("full_mode")
 
-    # ✅ CLEAR old bill from session
-    request.session.pop("bill_id", None)
+            if mode == "UPI":
+                bill.paid_upi = bill.grand_total
+                bill.paid_cash = 0
+            else:
+                bill.paid_cash = bill.grand_total
+                bill.paid_upi = 0
 
-    # ✅ CREATE fresh bill for next customer
-    new_bill = Bill.objects.create(bill_no=generate_bill_no())
-    request.session["bill_id"] = new_bill.id
+            bill.payment_status = "FULL"
 
-    # ✅ IMPORTANT:
-    # return PDF response (opens in new tab)
-    return redirect("pos:print_bill")
+        else:
+            paid_upi = float(request.POST.get("paid_upi") or 0)
+            paid_cash = float(request.POST.get("paid_cash") or 0)
 
+            if round(paid_upi + paid_cash, 2) != round(float(bill.grand_total), 2):
+                messages.error(
+                    request,
+                    f"❌ UPI + Cash must equal ₹{bill.grand_total}"
+                )
+                return redirect("pos:bill_summary")
+
+            bill.paid_upi = paid_upi
+            bill.paid_cash = paid_cash
+            bill.payment_status = "PARTIAL"
+
+        bill.is_paid = True
+        bill.save()
+
+        # Clear current bill
+        request.session.pop("bill_id", None)
+        new_bill = Bill.objects.create(bill_no=generate_bill_no())
+        request.session["bill_id"] = new_bill.id
+
+        messages.success(request, "✅ Payment recorded successfully!")
+        return redirect("pos:print_bill")
 
 # ------------------ PRINT BILL (PDF + EMAIL) ------------------
 
