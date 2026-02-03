@@ -66,5 +66,7 @@ urlpatterns = [
     path("add/combo/", views.add_combo, name="add_combo"),
     path("bill/", views.bill_summary, name="bill_summary"),
     path("remove/<int:item_id>/", views.remove_item, name="remove_item"),
+    path("bill/print/<int:bill_id>/", views.print_bill_by_id, name="print_bill_by_id"),
+
 
 ]

@@ -167,7 +167,7 @@
   <div class="paybar">
     <a href="{% url 'pos:choose_zone' %}" class="btn dark">⬅ Add More</a>
 
-    <form method="post" action="{% url 'pos:mark_paid' %}">
+    <form method="post" action="{% url 'pos:mark_paid' %}" target="_blank" onsubmit="refreshAfterPrint()">
       {% csrf_token %}
       <button class="btn pay">✅ Mark Paid & Print</button>
     </form>
@@ -201,5 +201,15 @@
   </div>
 </div>
 
+
+<script>
+function refreshAfterPrint() {
+    // Give backend time to mark bill paid & create new bill
+    setTimeout(function () {
+        window.location.reload();
+    }, 800); // 0.8 sec is safe
+}
+</script>
 </body>
 </html>
+

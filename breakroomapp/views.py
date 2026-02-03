@@ -477,8 +477,46 @@ def remove_item(request, item_id):
     messages.success(request, "✅ Item removed")
     return redirect("pos:bill_summary")
 
+@login_required
+def print_bill_by_id(request, bill_id):
+    paid_bill = Bill.objects.filter(id=bill_id, is_paid=True).first()
+
+    if not paid_bill:
+        messages.error(request, "❌ Bill not found.")
+        return redirect("pos:bill_summary")
+
+    # 🔽 EVERYTHING BELOW REMAINS SAME AS YOUR EXISTING print_bill()
+    # (PDF generation code)
 
 # ------------------ MARK PAID ------------------
+# Old version
+
+
+# @login_required
+# def mark_paid(request):
+#     bill = get_current_bill(request)
+
+#     if not bill.billitem_set.exists():
+#         messages.error(request, "❌ Add items first!")
+#         return redirect("pos:bill_summary")
+
+#     # ✅ Final calculation
+#     recalc_bill(bill)
+
+#     bill.is_paid = True
+#     bill.save()
+
+#     # ✅ Auto new bill for next customer
+#     request.session.pop("bill_id", None)
+#     new_bill = Bill.objects.create(bill_no=generate_bill_no())
+#     request.session["bill_id"] = new_bill.id
+
+#     messages.success(request, f"✅ Paid Successfully! New Bill: {new_bill.bill_no}")
+#     return redirect("pos:print_bill")
+
+
+#  New Version
+
 @login_required
 def mark_paid(request):
     bill = get_current_bill(request)
@@ -490,15 +528,19 @@ def mark_paid(request):
     # ✅ Final calculation
     recalc_bill(bill)
 
+    # ✅ Mark current bill as PAID
     bill.is_paid = True
     bill.save()
 
-    # ✅ Auto new bill for next customer
+    # ✅ CLEAR old bill from session
     request.session.pop("bill_id", None)
+
+    # ✅ CREATE fresh bill for next customer
     new_bill = Bill.objects.create(bill_no=generate_bill_no())
     request.session["bill_id"] = new_bill.id
 
-    messages.success(request, f"✅ Paid Successfully! New Bill: {new_bill.bill_no}")
+    # ✅ IMPORTANT:
+    # return PDF response (opens in new tab)
     return redirect("pos:print_bill")
 
 
