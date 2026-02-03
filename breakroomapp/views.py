@@ -19,6 +19,10 @@ from .utils import generate_bill_no, recalc_bill
 
 # ✅ Import ALL rates & menu from rates.py
 from .rates import FOOD_MENU, COMBOS,DRINKS, pool_rate_for_time, ps5_price
+from django.db.models import Sum, F, Q
+from django.utils.timezone import now
+from datetime import timedelta
+from collections import defaultdict
 
 
 # ------------------ HELPERS ------------------
@@ -1040,3 +1044,74 @@ def new_bill(request):
     request.session["bill_id"] = bill.id
     messages.success(request, f"✅ New Bill Created: {bill.bill_no}")
     return redirect("pos:bill_summary")
+
+
+
+@login_required
+def profit_dashboard(request):
+    today = now().date()
+    month_start = today.replace(day=1)
+
+    category_map = defaultdict(float)
+
+    items = (
+        BillItem.objects
+        .filter(bill__is_paid=True)
+        .annotate(line_total=F("quantity") * F("rate"))
+    )
+
+    for it in items:
+        total = float(it.total or 0)
+
+        if it.category in ["FOOD", "COMBO"]:
+            category_map["Food"] += total
+
+        elif it.category == "DRINKS":
+            category_map["Beverages"] += total
+
+        elif it.category == "GAME":
+            if it.resource and it.resource.startswith("POOL"):
+                category_map["Pool"] += total
+            elif it.resource and it.resource.startswith("PS5"):
+                category_map["PS5"] += total
+
+    categories = list(category_map.keys())
+    category_totals = list(category_map.values())
+
+    # =============================
+    # TOP ITEMS
+    # =============================
+    top_items_qs = (
+        BillItem.objects
+        .filter(bill__is_paid=True)
+        .values("item_name")
+        .annotate(total=Sum(F("quantity") * F("rate")))
+        .order_by("-total")[:5]
+    )
+
+    top_items = [i["item_name"] for i in top_items_qs]
+    top_items_total = [float(i["total"]) for i in top_items_qs]
+
+    # =============================
+    # KPIs
+    # =============================
+    today_sales = (
+        Bill.objects.filter(is_paid=True, created_at__date=today)
+        .aggregate(total=Sum("grand_total"))["total"] or 0
+    )
+
+    month_sales = (
+        Bill.objects.filter(is_paid=True, created_at__date__gte=month_start)
+        .aggregate(total=Sum("grand_total"))["total"] or 0
+    )
+
+    return render(request, "pos/profit_dashboard.html", {
+        "categories": categories,
+        "category_totals": category_totals,
+        "top_items": top_items,
+        "top_items_total": top_items_total,
+        "today_sales": today_sales,
+        "month_sales": month_sales,
+        "category_map": category_map,
+        "top_items_qs": top_items_qs,
+    })

@@ -1,0 +1,113 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Profit Dashboard</title>
+  <link rel="stylesheet" href="{% static 'pos/style.css' %}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <h2>📊 Profit Dashboard</h2>
+  <a href="{% url 'pos:dashboard' %}" class="btn dark">⬅ Back</a>
+</div>
+
+<!-- 🔥 KPI CARDS -->
+<div class="grid2">
+  <div class="card">
+    <h3>💰 Today’s Sales</h3>
+    <h1>₹ {{ today_sales|floatformat:0 }}</h1>
+  </div>
+
+  <div class="card">
+    <h3>📆 This Month</h3>
+    <h1>₹ {{ month_sales|floatformat:0 }}</h1>
+  </div>
+</div>
+
+<!-- 📊 CHARTS -->
+<div class="grid2">
+
+  <div class="card">
+    <h3>🏷️ Category Wise Revenue</h3>
+    <canvas id="categoryChart"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>🔥 Top Selling Items</h3>
+    <canvas id="itemsChart"></canvas>
+  </div>
+
+</div>
+
+<!-- 📋 TABLES -->
+<div class="grid2">
+
+  <div class="card">
+    <h3>📋 Category Breakdown</h3>
+    <table class="table">
+      <tr>
+        <th>Category</th>
+        <th>Revenue (₹)</th>
+      </tr>
+      {% for c in category_qs %}
+      <tr>
+        <td>{{ c.category }}</td>
+        <td>₹ {{ c.total|floatformat:0 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>🥇 Top Items</h3>
+    <table class="table">
+      <tr>
+        <th>Item</th>
+        <th>Revenue (₹)</th>
+      </tr>
+      {% for i in top_items_qs %}
+      <tr>
+        <td>{{ i.item_name }}</td>
+        <td>₹ {{ i.total|floatformat:0 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+</div>
+
+<script>
+/* CATEGORY CHART */
+new Chart(document.getElementById("categoryChart"), {
+  type: "bar",
+  data: {
+    labels: {{ categories|safe }},
+    datasets: [{
+      label: "Revenue (₹)",
+      data: {{ category_totals|safe }},
+      backgroundColor: "#4CAF50"
+    }]
+  }
+});
+
+/* TOP ITEMS CHART */
+new Chart(document.getElementById("itemsChart"), {
+  type: "bar",
+  data: {
+    labels: {{ top_items|safe }},
+    datasets: [{
+      label: "Revenue (₹)",
+      data: {{ top_items_total|safe }},
+      backgroundColor: "#ABDADC"
+    }]
+  },
+  options: {
+    indexAxis: 'y'
+  }
+});
+</script>
+
+</body>
+</html>
