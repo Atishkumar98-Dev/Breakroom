@@ -1118,12 +1118,25 @@ def profit_dashboard(request):
         Bill.objects.filter(is_paid=True, created_at__date=today)
         .aggregate(total=Sum("grand_total"))["total"] or 0
     )
+    
 
     month_sales = (
         Bill.objects.filter(is_paid=True, created_at__date__gte=month_start)
         .aggregate(total=Sum("grand_total"))["total"] or 0
     )
+    food_qty_qs = (
+    BillItem.objects
+    .filter(
+        bill__is_paid=True,
+        category__in=["FOOD", "DRINKS"]
+    )
+    .values("item_name")
+    .annotate(qty_sold=Sum("quantity"))
+    .order_by("-qty_sold")[:10]
+    )
 
+    food_items = [i["item_name"] for i in food_qty_qs]
+    food_quantities = [float(i["qty_sold"]) for i in food_qty_qs]
     return render(request, "pos/profit_dashboard.html", {
         "categories": categories,
         "category_totals": category_totals,
@@ -1133,4 +1146,6 @@ def profit_dashboard(request):
         "month_sales": month_sales,
         "category_map": category_map,
         "top_items_qs": top_items_qs,
+         "food_items": food_items,
+        "food_quantities": food_quantities,
     })

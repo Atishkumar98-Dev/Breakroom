@@ -44,21 +44,10 @@
 <!-- 📋 TABLES -->
 <div class="grid2">
 
-  <div class="card">
-    <h3>📋 Category Breakdown</h3>
-    <table class="table">
-      <tr>
-        <th>Category</th>
-        <th>Revenue (₹)</th>
-      </tr>
-      {% for c in category_qs %}
-      <tr>
-        <td>{{ c.category }}</td>
-        <td>₹ {{ c.total|floatformat:0 }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
+ <div style="width: 100%; height: 100%; margin:auto;">
+  <canvas id="foodQtyChart"></canvas>
+</div>
+
 
   <div class="card">
     <h3>🥇 Top Items</h3>
@@ -105,6 +94,21 @@ new Chart(document.getElementById("itemsChart"), {
   },
   options: {
     indexAxis: 'y'
+  }
+});
+</script>
+
+<canvas id="foodQtyChart"></canvas>
+
+<script>
+new Chart(document.getElementById("foodQtyChart"), {
+  type: "bar",
+  data: {
+    labels: {{ food_items|safe }},
+    datasets: [{
+      label: "Qty Sold",
+      data: {{ food_quantities|safe }},
+    }]
   }
 });
 </script>
