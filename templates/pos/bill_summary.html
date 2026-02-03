@@ -48,6 +48,31 @@
 
     <hr>
 
+    <div class="card">
+  <h3>📌 Pending Bills Available</h3>
+
+  {% if pending_bills %}
+    <ul style="list-style:none; padding:0; margin:0;">
+      {% for b in pending_bills %}
+        <li style="margin-bottom:8px;">
+          <a class="btn dark"
+             href="{% url 'pos:switch_bill' b.id %}">
+            {{ b.bill_no }}
+          </a>
+
+          {% if b.customer %}
+            <small>👤 {{ b.customer.name }}</small>
+          {% else %}
+            <small>👤 No Customer</small>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="note">✅ No pending bills</p>
+  {% endif %}
+</div>
+
     <!-- <div class="status-box">
   <p>🎱 Pool Table 1:
     {% if pool1_busy %}
@@ -177,8 +202,16 @@
 
   <div class="paybar">
     <a href="{% url 'pos:choose_zone' %}" class="btn dark">⬅ Add More</a>
+        <a href="{% url 'pos:new_bill' %}" class="btn dark">➕ New Bill</a>
 
-    <form method="post" action="{% url 'pos:mark_paid' %}" target="_blank" onsubmit="refreshAfterPrint()">
+    <a href="{% url 'pos:dashboard' %}" class="btn dark">📊 Dashboard</a>
+    <a href="{% url 'pos:membership_dashboard' %}" class="btn">
+  🎟️ Memberships
+</a>
+    <a href="{% url 'pos:profit_dashboard' %}" class="btn dark">📊 Profit Dashboard</a>
+
+    <br>
+    <form method="post" action="{% url 'pos:mark_paid' %}" class="mx-5" target="_blank" onsubmit="refreshAfterPrint()">
       {% csrf_token %}
       <input type="hidden" id="grandTotal" value="{{ totals.grand_total }}">
 
@@ -211,38 +244,10 @@
       
 </div>
       <button class="btn pay">✅ Mark Paid & Print</button>
+    
+    
     </form>
-    <a href="{% url 'pos:new_bill' %}" class="btn dark">➕ New Bill</a>
-<div class="card">
-  <h3>📌 Pending Bills Available</h3>
 
-  {% if pending_bills %}
-    <ul style="list-style:none; padding:0; margin:0;">
-      {% for b in pending_bills %}
-        <li style="margin-bottom:8px;">
-          <a class="btn dark"
-             href="{% url 'pos:switch_bill' b.id %}">
-            {{ b.bill_no }}
-          </a>
-
-          {% if b.customer %}
-            <small>👤 {{ b.customer.name }}</small>
-          {% else %}
-            <small>👤 No Customer</small>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="note">✅ No pending bills</p>
-  {% endif %}
-</div>
-
-    <a href="{% url 'pos:dashboard' %}" class="btn dark">📊 Dashboard</a>
-    <a href="{% url 'pos:membership_dashboard' %}" class="btn">
-  🎟️ Memberships
-</a>
-    <a href="{% url 'pos:profit_dashboard' %}" class="btn dark">📊 Profit Dashboard</a>
   </div>
 </div>
 

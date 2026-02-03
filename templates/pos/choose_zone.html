@@ -45,13 +45,23 @@
   </a> -->
 
   <a class="zone-card wide" href="{% url 'pos:bill_summary' %}">
-    🧾 <h2>View Bill</h2>
+    🧾 <h2>Billing Zone</h2>
     <p>Edit items, apply discount, mark paid</p>
   </a>
-
   <a class="zone-card wide" href="{% url 'pos:dashboard' %}">
     📊 <h2>Dashboard</h2>
     <p>Sales, customers, recent updates</p>
+  </a>
+
+  <a class="zone-card wide" href="{% url 'pos:membership_dashboard' %}">
+    🎟️ <h2>Membership Dashboard</h2>
+    <p>View and manage memberships</p>
+  </a>
+  
+
+  <a class="zone-card wide" href="{% url 'pos:profit_dashboard' %}" >
+    📊 <h2>Profit Dashboard</h2>
+    <p>View profit and loss reports</p>
   </a>
 </div>
 
