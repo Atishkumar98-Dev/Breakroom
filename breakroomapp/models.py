@@ -1,4 +1,6 @@
 from django.db import models
+from django.utils.timezone import localtime, now
+
 
 class Category(models.Model):
     name = models.CharField(max_length=120,null=True)
@@ -147,7 +149,7 @@ class BillItem(models.Model):
     quantity = models.FloatField(default=1)
     rate = models.FloatField(default=0)
     total = models.FloatField(default=0)
-
+    note = models.CharField(max_length=255, blank=True)
     # gaming booking
     resource = models.CharField(max_length=20, blank=True, null=True)  # POOL-1, POOL-2, PS5-65, PS5-55
     start_time = models.TimeField(blank=True, null=True)
@@ -166,3 +168,35 @@ class BillItem(models.Model):
         super().save(*args, **kwargs)
 
 
+
+class MembershipPlan(models.Model):
+    name = models.CharField(max_length=100)
+    total_hours = models.DecimalField(max_digits=5, decimal_places=2)
+    price = models.PositiveIntegerField()
+    regular_price = models.PositiveIntegerField()
+    validity_days = models.PositiveIntegerField(default=30)
+    weekday_only = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+
+
+class CustomerMembership(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    plan = models.ForeignKey(MembershipPlan, on_delete=models.PROTECT)
+
+    hours_remaining = models.DecimalField(max_digits=5, decimal_places=2)
+    purchased_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    weekend_access = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    def is_valid_today(self):
+        today = localtime(now()).date()
+        if today > self.expires_at.date():
+            return False
+        if self.plan.weekday_only and today.weekday() >= 5:
+            return self.weekend_access
+        return True

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Buy Membership</title>
+  <style>
+    body {
+      background: #0f0f0f;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #fff;
+    }
+
+    .section-title {
+      text-align: center;
+      margin: 20px 0 12px;
+      font-size: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    .membership-wrapper {
+      display: flex;
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .membership-box {
+      width: 100%;
+      max-width: 360px;
+      background: #111;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      border: 1px solid #222;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    .field-label {
+      font-size: 13px;
+      color: #aaa;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .field-input {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 10px;
+      background: #1c1c1c;
+      color: #fff;
+      border: 1px solid #333;
+      font-size: 14px;
+    }
+
+    .field-input:focus {
+      outline: none;
+      border-color: #4caf50;
+    }
+
+    .addon-box {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 18px;
+      border: 1px dashed #333;
+    }
+
+    .addon-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .addon-row input {
+      transform: scale(1.3);
+      cursor: pointer;
+    }
+
+    .addon-title {
+      font-weight: 600;
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .addon-sub {
+      font-size: 12px;
+      color: #aaa;
+      margin-top: 2px;
+    }
+
+    .membership-btn {
+      width: 100%;
+      padding: 13px;
+      font-size: 15px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(135deg, #4caf50, #2e7d32);
+      color: #fff;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .membership-btn:hover {
+      opacity: 0.95;
+    }
+
+    .membership-footnote {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #888;
+      text-align: center;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h3 class="section-title">🎫 Buy Membership</h3>
+
+  <div class="membership-wrapper">
+    <form method="post" class="membership-box">
+      {% csrf_token %}
+
+      <!-- PLAN -->
+      <div class="field">
+        <label class="field-label">Select Membership Plan</label>
+        <select name="plan" class="field-input" required>
+          {% for p in plans %}
+            <option value="{{ p.id }}">
+              {{ p.name }} — {{ p.total_hours }} hrs — ₹{{ p.price }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- WEEKEND ACCESS -->
+      <div class="addon-box">
+        <label class="addon-row">
+          <input type="checkbox" name="weekend_access">
+          <div>
+            <div class="addon-title">Weekend Access</div>
+            <div class="addon-sub">Play on Saturday & Sunday (+₹99)</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- CTA -->
+      <button class="membership-btn">
+        💳 Activate Membership
+      </button>
+
+      <div class="membership-footnote">
+        ⏱ Hours are deducted <b>only after bill payment</b><br>
+        🎮 Valid for Pool & PS5 (as per plan)
+      </div>
+    </form>
+  </div>
+
+</body>
+</html>

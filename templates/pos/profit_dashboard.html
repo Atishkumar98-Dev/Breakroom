@@ -76,6 +76,7 @@ new Chart(document.getElementById("categoryChart"), {
     datasets: [{
       label: "Revenue (₹)",
       data: {{ category_totals|safe }},
+      barThickness: 80,
       backgroundColor: "#4CAF50"
     }]
   }
@@ -89,6 +90,7 @@ new Chart(document.getElementById("itemsChart"), {
     datasets: [{
       label: "Revenue (₹)",
       data: {{ top_items_total|safe }},
+      barThickness: 40,
       backgroundColor: "#ABDADC"
     }]
   },

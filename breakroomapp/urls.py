@@ -69,5 +69,19 @@ urlpatterns = [
     path("bill/print/<int:bill_id>/", views.print_bill_by_id, name="print_bill_by_id"),
     path("dashboard/profit/", views.profit_dashboard, name="profit_dashboard"),
 
+    path(
+        "membership/buy/",
+        views.buy_membership,
+        name="buy_membership"
+    ),
+
+    path(
+        "membership/view/",
+        views.view_membership,
+        name="view_membership"
+    ),
+
+    # urls.py
+path("memberships/", views.membership_dashboard, name="membership_dashboard"),
 
 ]

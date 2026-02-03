@@ -14,8 +14,9 @@ from decimal import Decimal
 import io, os
 from datetime import datetime, timedelta
 import json
-from .models import Bill, BillItem, Customer , Product, Category, Inventory
-from .utils import generate_bill_no, recalc_bill
+from .models import Bill, BillItem, Customer , Product, Category, Inventory 
+from .models import *
+from .utils import generate_bill_no, recalc_bill , get_active_membership
 
 # ✅ Import ALL rates & menu from rates.py
 from .rates import FOOD_MENU, COMBOS,DRINKS, pool_rate_for_time, ps5_price
@@ -334,70 +335,110 @@ def allocate_pool_table(preferred_table, start_t, end_t):
 def add_pool(request):
     bill = get_current_bill(request)
 
-    if request.method == "POST":
-        table_no = request.POST.get("pool_table")
-        duration = request.POST.get("pool_duration")  # 30/60/120/180
-        ft = request.POST.get("from_time")
-
-        if table_no and duration and ft:
-            minutes = int(duration)
-            auto_to = add_minutes_to_time(ft, minutes)
-
-            start_t = datetime.strptime(ft, "%H:%M").time()
-            end_t = datetime.strptime(auto_to, "%H:%M").time()
-            selected_table, msg = allocate_pool_table(table_no, start_t, end_t)
-
-            if not selected_table:
-                messages.error(request, msg)
-                return redirect("pos:add_pool")   # ✅ message shown on Add Pool page
-
-            if msg:
-                messages.warning(request, msg)
-
-            # ✅ Now use selected table
-            resource = f"POOL-{selected_table}"
-
-            weekend = is_weekend_today()
-            rates = pool_rate_for_time(start_t, weekend)
-            print(duration,rates,'duration')
-            rate = rates.get(duration, 0)
-            print(rate,'rate')
-            if rate == 0:
-                messages.error(request, "❌ Duration not available for selected time slot.")
-                return redirect("pos:add_pool")
-
-            qty = minutes / 60
-            resource = f"POOL-{selected_table}"
-
-
-            if has_overlap(bill, resource, start_t, end_t):
-                messages.error(request, f"❌ Pool Table {table_no} BUSY during {ft}-{auto_to}")
-                return redirect("pos:add_pool")
-
-            name = f"Pool Table {selected_table} ({ft}-{auto_to})"
-            today = localtime(now()).date()
-
-            start_dt = make_aware(datetime.combine(today, datetime.strptime(ft, "%H:%M").time()))
-            end_dt   = make_aware(datetime.combine(today, datetime.strptime(auto_to, "%H:%M").time()))
-
-
-            BillItem.objects.create(
-                bill=bill,
-                category="GAME",
-                item_name=name,
-                quantity=qty,
-                rate=rate,
-                resource=resource,
-                start_time=start_t,
-                end_time=end_t,
-                start_dt=start_dt,
-                end_dt=end_dt,
-            )
-            messages.success(request, f"✅ Added {name}")
-
+    # 🔒 Customer required
+    if not bill.customer:
+        messages.error(request, "❌ Save customer first.")
         return redirect("pos:bill_summary")
 
-    return render(request, "pos/add_pool.html", {"bill": bill})
+    # 🔍 Active membership (if any)
+    membership = get_active_membership(bill.customer)
+
+    if request.method == "POST":
+        table_no = request.POST.get("pool_table")
+        duration = request.POST.get("pool_duration")   # minutes: "30", "60", etc
+        ft = request.POST.get("from_time")
+
+        if not (table_no and duration and ft):
+            messages.error(request, "❌ Select table, duration and time.")
+            return redirect("pos:add_pool")
+
+        minutes = int(duration)
+        deduct_hours = Decimal(minutes) / Decimal("60")  # ⭐ supports 0.5, 1.5 etc
+
+        auto_to = add_minutes_to_time(ft, minutes)
+        start_t = datetime.strptime(ft, "%H:%M").time()
+        end_t = datetime.strptime(auto_to, "%H:%M").time()
+
+        selected_table, msg = allocate_pool_table(table_no, start_t, end_t)
+        if not selected_table:
+            messages.error(request, msg)
+            return redirect("pos:add_pool")
+
+        if msg:
+            messages.warning(request, msg)
+
+        resource = f"POOL-{selected_table}"
+
+        # ⛔ Overlap check
+        if has_overlap(bill, resource, start_t, end_t):
+            messages.error(request, "❌ Pool table busy in this slot.")
+            return redirect("pos:add_pool")
+
+        name = f"Pool Table {selected_table} ({ft}-{auto_to})"
+        today = localtime(now()).date()
+
+        start_dt = make_aware(datetime.combine(today, start_t))
+        end_dt = make_aware(datetime.combine(today, end_t))
+
+        # ============================
+        # 🎟️ MEMBERSHIP DECISION (NO DEDUCTION)
+        # ============================
+        use_membership = False
+        rate = Decimal("0")
+        note = ""
+
+        if membership:
+            if not membership.weekend_access and is_weekend_today():
+                messages.info(request, "ℹ Membership not valid on weekends.")
+            elif membership.hours_remaining >= deduct_hours:
+                use_membership = True
+                rate = Decimal("0")
+                note = f"MEMBERSHIP::{deduct_hours}"
+
+                messages.success(
+                    request,
+                    f"🎟️ Membership will be used ({deduct_hours} hr)"
+                )
+
+        # ============================
+        # 💰 NORMAL BILLING (NO MEMBERSHIP)
+        # ============================
+        if not use_membership:
+            weekend = is_weekend_today()
+            rates = pool_rate_for_time(start_t, weekend)
+            rate = Decimal(str(rates.get(duration, 0)))
+
+            if rate == 0:
+                messages.error(request, "❌ Invalid pool rate.")
+                return redirect("pos:add_pool")
+
+        # ============================
+        # 🧾 CREATE BILL ITEM
+        # ============================
+        BillItem.objects.create(
+            bill=bill,
+            category="GAME",
+            item_name=name,
+            quantity=deduct_hours,   # stored in HOURS
+            rate=rate,
+            resource=resource,
+            start_time=start_t,
+            end_time=end_t,
+            start_dt=start_dt,
+            end_dt=end_dt,
+            note=note,               # 👈 deduction marker
+            is_discountable=False,
+        )
+
+        recalc_bill(bill)
+        messages.success(request, f"✅ Added {name}")
+        return redirect("pos:bill_summary")
+
+    return render(request, "pos/add_pool.html", {
+        "bill": bill,
+        "membership": membership,
+    })
+
 
 
 # ------------------ ADD PS5 ------------------
@@ -555,7 +596,33 @@ def mark_paid(request):
             bill.paid_upi = paid_upi
             bill.paid_cash = paid_cash
             bill.payment_status = "PARTIAL"
+        if bill.customer:
+            membership = get_active_membership(bill.customer)
 
+            if membership:
+                total_deduct_hours = Decimal("0")
+
+                for item in bill.billitem_set.filter(
+                    category="GAME",
+                    note__startswith="MEMBERSHIP::"
+                ):
+                    hrs = Decimal(item.note.split("::")[1])
+                    total_deduct_hours += hrs
+
+                if total_deduct_hours > 0:
+                    if membership.hours_remaining < total_deduct_hours:
+                        messages.error(
+                            request,
+                            "❌ Membership hours insufficient at payment time."
+                        )
+                        return redirect("pos:bill_summary")
+
+                    membership.hours_remaining -= total_deduct_hours
+                    membership.save()
+
+    # =========================
+    # ✅ FINALIZE BILL
+    # =========================
         bill.is_paid = True
         bill.save()
 
@@ -1148,4 +1215,96 @@ def profit_dashboard(request):
         "top_items_qs": top_items_qs,
          "food_items": food_items,
         "food_quantities": food_quantities,
+    })
+
+
+@login_required
+def buy_membership(request):
+    bill = get_current_bill(request)
+
+    if not bill.customer:
+        messages.error(request, "❌ Save customer first.")
+        return redirect("pos:bill_summary")
+
+    plans = MembershipPlan.objects.all()
+
+    if request.method == "POST":
+        plan_id = request.POST.get("plan")
+        weekend = request.POST.get("weekend_access") == "on"
+
+        plan = MembershipPlan.objects.get(id=plan_id)
+
+        expires_at = localtime(now()) + timedelta(days=plan.validity_days)
+
+        CustomerMembership.objects.create(
+            customer=bill.customer,
+            plan=plan,
+            hours_remaining=plan.total_hours,
+            expires_at=expires_at,
+            weekend_access=weekend,
+        )
+
+        messages.success(request, "🎉 Membership activated successfully!")
+        return redirect("pos:bill_summary")
+
+    return render(request, "pos/buy_membership.html", {
+        "plans": plans,
+        "customer": bill.customer,
+    })
+
+
+@login_required
+def view_membership(request):
+    bill = get_current_bill(request)
+
+    if not bill.customer:
+        messages.error(request, "❌ Save customer first.")
+        return redirect("pos:bill_summary")
+
+    memberships = CustomerMembership.objects.filter(
+        customer=bill.customer,
+        is_active=True
+    )
+
+    return render(request, "pos/view_membership.html", {
+        "customer": bill.customer,
+        "memberships": memberships,
+    })
+
+
+@login_required
+def membership_dashboard(request):
+    now_time = localtime(now())
+    status = request.GET.get("status")
+
+    memberships = (
+        CustomerMembership.objects
+        .select_related("customer", "plan")
+        .order_by("-purchased_at")
+    )
+
+    # ✅ STATUS FILTERS (FIXED)
+    if status == "active":
+        memberships = memberships.filter(
+            is_active=True,
+            expires_at__gte=now_time
+        )
+    elif status == "expired":
+        memberships = memberships.filter(
+            Q(is_active=False) | Q(expires_at__lt=now_time)
+        )
+
+    membership_data = []
+    for m in memberships:
+        used_hours = m.plan.total_hours - m.hours_remaining
+
+        membership_data.append({
+            "obj": m,
+            "used_hours": used_hours if used_hours > 0 else 0,
+        })
+
+    return render(request, "pos/membership_dashboard.html", {
+        "membership_data": membership_data,
+        "now": now_time,
+        "status": status,
     })

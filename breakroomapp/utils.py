@@ -1,6 +1,27 @@
+
+
 from .models import Bill, BillItem
 from django.db.models import Sum
 from django.forms.models import model_to_dict
+
+
+from django.utils.timezone import localtime, now
+from .models import CustomerMembership
+
+def get_active_membership(customer):
+    today = localtime(now()).date()
+
+    return (
+        CustomerMembership.objects
+        .filter(
+            customer=customer,
+            is_active=True,
+            expires_at__date__gte=today,
+            hours_remaining__gt=0
+        )
+        .order_by("expires_at")
+        .first()
+    )
 
 
 def generate_bill_no():

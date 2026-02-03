@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import Bill, BillItem, Customer
 from django.contrib import admin
 from .models import Category, Product, Inventory,SubCategory
+from .models import *
 from django.utils.html import format_html
 
 class BillItemInline(admin.TabularInline):
@@ -46,7 +47,7 @@ class BillAdmin(admin.ModelAdmin):
         if obj.payment_status == "FULL":
             if obj.paid_upi > 0:
                 return format_html("<b style='color:green;'>UPI</b>")
-            return format_html("<b style='color:blue;'>CASH</b>")
+            return format_html("<b style='color:#A8DF8E;'>CASH</b>")
 
         return format_html("<b style='color:orange;'>SPLIT</b>")
 
@@ -154,3 +155,35 @@ class InventoryAdmin(admin.ModelAdmin):
     )
 
     search_fields = ("product__name",)
+
+
+@admin.register(CustomerMembership)
+class CustomerMembershipAdmin(admin.ModelAdmin):
+    list_display = (
+        "customer",
+        "plan",
+        "hours_remaining",
+        "expires_at",
+        "weekend_access",
+        "is_active",
+    )
+    list_filter = ("plan", "weekend_access", "is_active")
+    search_fields = ("customer__email",)
+
+
+from django.contrib import admin
+from .models import MembershipPlan
+
+@admin.register(MembershipPlan)
+class MembershipPlanAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "total_hours",
+        "price",
+        "regular_price",
+        "validity_days",
+        "weekday_only",
+    )
+
+    list_filter = ("weekday_only",)
+    search_fields = ("name",)

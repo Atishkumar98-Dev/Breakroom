@@ -1,0 +1,80 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Membership Dashboard</title>
+  <link rel="stylesheet" href="{% static 'pos/style.css' %}">
+</head>
+<body>
+
+<div class="topbar">
+  <h2>🎟️ Membership Dashboard</h2>
+  <div>
+    <a href="?status=active" class="btn">Active</a>
+    <a href="?status=expired" class="btn dark">Expired</a>
+    <a href="{% url 'pos:dashboard' %}" class="btn dark">⬅ Back</a>
+  </div>
+</div>
+
+<div class="card wide">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Customer</th>
+        <th>Plan</th>
+        <th>Total Hours</th>
+        <th>Used</th>
+        <th>Remaining</th>
+        <th>Weekend</th>
+        <th>Expiry</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+
+    <tbody>
+     {% for row in membership_data %}
+{% with m=row.obj %}
+<tr>
+  <td>
+    <b>{{ m.customer.name }}</b><br>
+    <small>{{ m.customer.email }}</small>
+  </td>
+
+  <td>
+    {{ m.plan.name }}<br>
+    <small>₹{{ m.plan.price }}</small>
+  </td>
+
+  <td>{{ m.plan.total_hours|floatformat:1 }} hr</td>
+
+  <td>
+    {{ row.used_hours|floatformat:1 }} hr
+  </td>
+
+  <td>
+    <b>{{ m.hours_remaining|floatformat:1 }} hr</b>
+  </td>
+
+  <td>
+    {% if m.weekend_access %}✅ Yes{% else %}❌ No{% endif %}
+  </td>
+
+  <td>{{ m.expires_at|date:"d M Y" }}</td>
+
+  <td>
+    {% if m.is_active and m.expires_at >= now %}
+      <span style="color:green;font-weight:bold;">ACTIVE</span>
+    {% else %}
+      <span style="color:red;font-weight:bold;">EXPIRED</span>
+    {% endif %}
+  </td>
+</tr>
+{% endwith %}
+{% endfor %}
+
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>

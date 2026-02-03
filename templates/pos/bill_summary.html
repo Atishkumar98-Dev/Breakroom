@@ -136,6 +136,12 @@
     <a href="{% url 'pos:add_pool' %}" class="btn">➕ Pool</a>
     <a href="{% url 'pos:add_ps5' %}" class="btn">➕ PS5</a>
     <a href="{% url 'pos:add_combo' %}" class="btn">➕ Combo</a>
+    <a href="{% url 'pos:buy_membership' %}" class="btn">  🎫 Buy Membership </a>
+    <a href="{% url 'pos:view_membership' %}" class="btn dark">
+    📄 View Membership
+  </a>
+
+    
   {% else %}
     <!-- <button class="btn dark" disabled>➕ Food</button>
     <button class="btn dark" disabled>➕ Pool</button>
@@ -233,6 +239,9 @@
 </div>
 
     <a href="{% url 'pos:dashboard' %}" class="btn dark">📊 Dashboard</a>
+    <a href="{% url 'pos:membership_dashboard' %}" class="btn">
+  🎟️ Memberships
+</a>
     <a href="{% url 'pos:profit_dashboard' %}" class="btn dark">📊 Profit Dashboard</a>
   </div>
 </div>
