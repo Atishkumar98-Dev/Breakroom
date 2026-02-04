@@ -861,42 +861,55 @@ from django.db.models import Sum
 
 @login_required
 def dashboard(request):
-    today = localtime(now()).date()
+    bills = Bill.objects.all().order_by("-created_at")
 
-    # ============================
+    # =========================
     # FILTERS
-    # ============================
+    # =========================
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
     is_paid = request.GET.get("is_paid")
+    payment_status = request.GET.get("payment_status")
 
-    bills = Bill.objects.select_related("customer").prefetch_related("billitem_set")
+    if start_date:
+        bills = bills.filter(created_at__date__gte=start_date)
+    if end_date:
+        bills = bills.filter(created_at__date__lte=end_date)
+    if is_paid == "true":
+        bills = bills.filter(is_paid=True)
+    elif is_paid == "false":
+        bills = bills.filter(is_paid=False)
+    if payment_status:
+        bills = bills.filter(payment_status=payment_status)
 
-    if start_date and end_date:
-        bills = bills.filter(created_at__date__range=[start_date, end_date])
-    else:
-        bills = bills.filter(created_at__date=today)
-
-    if is_paid in ["true", "false"]:
-        bills = bills.filter(is_paid=(is_paid == "true"))
-
-    bills = bills.order_by("-created_at")
-
-    # ============================
-    # SUMMARY
-    # ============================
+    # =========================
+    # TOTALS
+    # =========================
     total_sales = bills.filter(is_paid=True).aggregate(
         total=Sum("grand_total")
     )["total"] or 0
 
+    total_upi = bills.filter(is_paid=True).aggregate(
+        total=Sum("paid_upi")
+    )["total"] or 0
+
+    total_cash = bills.filter(is_paid=True).aggregate(
+        total=Sum("paid_cash")
+    )["total"] or 0
+
+    total_customers = Customer.objects.count()
+
     return render(request, "pos/dashboard.html", {
         "bills": bills,
         "total_sales": total_sales,
+        "total_upi": total_upi,
+        "total_cash": total_cash,
+        "total_customers": total_customers,
         "start_date": start_date,
         "end_date": end_date,
         "is_paid": is_paid,
+        "payment_status": payment_status,
     })
-
 
 
 @login_required
