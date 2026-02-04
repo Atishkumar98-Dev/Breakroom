@@ -856,31 +856,47 @@ def print_bill(request):
     return response
 
 # ------------------ DASHBOARD ------------------
+from django.utils.timezone import localtime
+from django.db.models import Sum
+
 @login_required
 def dashboard(request):
-    today = now().date()
-    print('today',today)
-    total_sales = Bill.objects.filter(is_paid=True).aggregate(Sum("grand_total"))["grand_total__sum"] or 0
-    today_sales = Bill.objects.filter(is_paid=True, created_at__date=today).aggregate(Sum("grand_total"))["grand_total__sum"] or 0
-    print(today_sales,'today_salestoday_salestoday_salestoday_sales')
+    today = localtime(now()).date()
 
-    paid_bills = Bill.objects.filter(is_paid=True).count()
-    unpaid_bills = Bill.objects.filter(is_paid=False).count()
+    # ============================
+    # FILTERS
+    # ============================
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+    is_paid = request.GET.get("is_paid")
 
-    total_customers = Customer.objects.count()
+    bills = Bill.objects.select_related("customer").prefetch_related("billitem_set")
 
-    recent_bills = Bill.objects.order_by("-created_at")[:10]
-    recent_items = BillItem.objects.order_by("-created_at")[:20]
+    if start_date and end_date:
+        bills = bills.filter(created_at__date__range=[start_date, end_date])
+    else:
+        bills = bills.filter(created_at__date=today)
+
+    if is_paid in ["true", "false"]:
+        bills = bills.filter(is_paid=(is_paid == "true"))
+
+    bills = bills.order_by("-created_at")
+
+    # ============================
+    # SUMMARY
+    # ============================
+    total_sales = bills.filter(is_paid=True).aggregate(
+        total=Sum("grand_total")
+    )["total"] or 0
 
     return render(request, "pos/dashboard.html", {
+        "bills": bills,
         "total_sales": total_sales,
-        "today_sales": today_sales,
-        "paid_bills": paid_bills,
-        "unpaid_bills": unpaid_bills,
-        "total_customers": total_customers,
-        "recent_bills": recent_bills,
-        "recent_items": recent_items,
+        "start_date": start_date,
+        "end_date": end_date,
+        "is_paid": is_paid,
     })
+
 
 
 @login_required

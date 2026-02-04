@@ -4,46 +4,303 @@
 <head>
   <title>Dashboard - BREAKROOM</title>
   <link rel="stylesheet" href="{% static 'billing/style.css' %}">
+
+<style>
+/* =====================
+   GLOBAL
+===================== */
+body {
+  background: #0f1115;
+  color: #eaeaea;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+h1, h2, h3 {
+  margin: 0 0 8px;
+}
+
+small {
+  color: #aaa;
+}
+
+/* =====================
+   TOPBAR
+===================== */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 22px;
+  background: #141820;
+  border-bottom: 1px solid #222;
+}
+
+.topbar h1 {
+  font-size: 22px;
+}
+
+.topbar p {
+  font-size: 12px;
+  color: #aaa;
+}
+
+/* =====================
+   CARDS
+===================== */
+.card {
+  background: #141820;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+
+.card.wide {
+  grid-column: span 2;
+}
+
+/* =====================
+   FILTER BAR
+===================== */
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.filter-bar label {
+  font-size: 11px;
+  color: #aaa;
+}
+
+.filter-bar input,
+.filter-bar select {
+  padding: 8px;
+  background: #0f1115;
+  color: #fff;
+  border: 1px solid #2a2f3a;
+  border-radius: 6px;
+}
+
+/* =====================
+   BUTTONS
+===================== */
+.btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: #f5c400;
+  color: #000;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+.btn.dark {
+  background: #2a2f3a;
+  color: #fff;
+}
+
+/* =====================
+   KPI GRID
+===================== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.kpi-value {
+  font-size: 26px;
+  color: #f5c400;
+  font-weight: bold;
+}
+
+/* =====================
+   BILL CARDS
+===================== */
+.bill-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tag {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.tag.green { background:#1e7f43; }
+.tag.orange { background:#b36b00; }
+.tag.gray { background:#444; }
+
+/* =====================
+   TABLE
+===================== */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.table th {
+  text-align: left;
+  font-size: 12px;
+  color: #aaa;
+  border-bottom: 1px solid #333;
+  padding: 8px;
+}
+
+.table td {
+  padding: 8px;
+  border-bottom: 1px solid #222;
+}
+
+.table tr:nth-child(even) {
+  background: #11141b;
+}
+
+/* =====================
+   DETAILS
+===================== */
+details summary {
+  cursor: pointer;
+  color: #f5c400;
+  font-size: 13px;
+  margin-top: 10px;
+}
+</style>
 </head>
+
 <body>
 
+<!-- =====================
+     TOPBAR
+===================== -->
 <div class="topbar">
-  <div class="brand">
+  <div>
     <h1>📊 Dashboard</h1>
-    <p>BREAKROOM Sales & Customers</p>
+    <p>BREAKROOM — Sales & Billing Overview</p>
   </div>
-
   <a href="/" class="btn dark">⬅ Back to Billing</a>
 </div>
 
-<div class="grid">
+<!-- =====================
+     FILTER BAR
+===================== -->
+<div class="card">
+  <form method="get" class="filter-bar">
+    <div>
+      <label>From</label><br>
+      <input type="date" name="start_date" value="{{ start_date }}">
+    </div>
 
-  <div class="card">
-    <h2>Total Sales</h2>
-    <p style="font-size:28px; color:#f5c400;">Rs. {{ total_sales }}</p>
-  </div>
+    <div>
+      <label>To</label><br>
+      <input type="date" name="end_date" value="{{ end_date }}">
+    </div>
 
-  <div class="card">
-    <h2>Total Paid Bills</h2>
-    <p style="font-size:28px; color:#f5c400;">{{ total_bills }}</p>
-  </div>
+    <div>
+      <label>Status</label><br>
+      <select name="is_paid">
+        <option value="">All</option>
+        <option value="true" {% if is_paid == "true" %}selected{% endif %}>Paid</option>
+        <option value="false" {% if is_paid == "false" %}selected{% endif %}>Unpaid</option>
+      </select>
+    </div>
 
-  <div class="card">
-    <h2>Total Customers</h2>
-    <p style="font-size:28px; color:#f5c400;">{{ total_customers }}</p>
-  </div>
+    <div>
+      <label>Payment</label><br>
+      <select name="payment_status">
+        <option value="">All</option>
+        <option value="FULL">Full</option>
+        <option value="PARTIAL">Split</option>
+      </select>
+    </div>
 
-  <div class="card">
-    <h2>Returning Customers</h2>
-    <p style="font-size:28px; color:#f5c400;">{{ returning_customers }}</p>
-  </div>
-
-  <div class="card wide">
-    <h2>Today Sales</h2>
-    <p style="font-size:22px; color:#f5c400;">Rs. {{ today_sales }} | Bills: {{ today_bills }}</p>
-  </div>
-
+    <button class="btn">Apply</button>
+    <a href="{% url 'pos:dashboard' %}" class="btn dark">Today</a>
+  </form>
 </div>
+
+<!-- =====================
+     KPI GRID
+===================== -->
+<div class="grid">
+  <div class="card">
+    <h3>Total Sales</h3>
+    <div class="kpi-value">₹{{ total_sales }}</div>
+  </div>
+
+  <div class="card">
+    <h3>Paid Bills</h3>
+    <div class="kpi-value">{{ bills|length }}</div>
+  </div>
+
+  <div class="card">
+    <h3>Customers</h3>
+    <div class="kpi-value">{{ total_customers }}</div>
+  </div>
+</div>
+
+<!-- =====================
+     BILLS
+===================== -->
+{% for bill in bills %}
+<div class="card">
+  <div class="bill-header">
+    <h3>🧾 {{ bill.bill_no }}</h3>
+
+    {% if bill.is_paid %}
+      <span class="tag {% if bill.payment_status == 'FULL' %}green{% else %}orange{% endif %}">
+        {{ bill.payment_status }}
+      </span>
+    {% else %}
+      <span class="tag gray">UNPAID</span>
+    {% endif %}
+  </div>
+
+  <small>
+    👤 {{ bill.customer.name|default:"No Customer" }} |
+    ₹{{ bill.grand_total }} |
+    UPI ₹{{ bill.paid_upi }} |
+    Cash ₹{{ bill.paid_cash }} |
+    {{ bill.created_at|date:"d M Y, H:i" }}
+  </small>
+
+  <details>
+    <summary>View Items</summary>
+
+    <table class="table">
+      <tr>
+        <th>Item</th>
+        <th>Category</th>
+        <th>Qty</th>
+        <th>Rate</th>
+        <th>Total</th>
+        <th>Resource</th>
+        <th>Note</th>
+      </tr>
+
+      {% for item in bill.billitem_set.all %}
+      <tr>
+        <td>{{ item.item_name }}</td>
+        <td>{{ item.category }}</td>
+        <td>{{ item.quantity }}</td>
+        <td>₹{{ item.rate }}</td>
+        <td>₹{{ item.total }}</td>
+        <td>{{ item.resource|default:"—" }}</td>
+        <td>{{ item.note|default:"—" }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </details>
+</div>
+{% empty %}
+<p style="padding:20px;">No bills found</p>
+{% endfor %}
 
 </body>
 </html>
