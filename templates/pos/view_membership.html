@@ -1,0 +1,142 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Memberships - BREAKROOM</title>
+  <link rel="stylesheet" href="{% static 'billing/style.css' %}">
+
+<style>
+body {
+  background:#0f1115;
+  color:#eaeaea;
+  font-family: system-ui;
+}
+
+.topbar {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:18px;
+  background:#141820;
+  border-bottom:1px solid #222;
+}
+
+.card {
+  background:#141820;
+  padding:16px;
+  border-radius:10px;
+  margin-bottom:16px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.25);
+}
+
+.table {
+  width:100%;
+  border-collapse:collapse;
+  margin-top:12px;
+  font-size:13px;
+}
+
+.table th {
+  color:#aaa;
+  text-align:left;
+  padding:8px;
+  border-bottom:1px solid #333;
+}
+
+.table td {
+  padding:8px;
+  border-bottom:1px solid #222;
+}
+
+.tag {
+  padding:4px 8px;
+  font-size:11px;
+  border-radius:6px;
+}
+
+.green { background:#1e7f43; }
+.red { background:#7f1e1e; }
+.orange { background:#b36b00; }
+
+.btn {
+  padding:8px 14px;
+  border-radius:6px;
+  background:#f5c400;
+  color:#000;
+  font-weight:600;
+  text-decoration:none;
+}
+
+.btn.dark {
+  background:#2a2f3a;
+  color:#fff;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ================= TOP BAR ================= -->
+<div class="topbar">
+  <div>
+    <h2>🎟️ Membership Overview</h2>
+    <small>Track all customer memberships</small>
+  </div>
+  <a href="{% url 'pos:bill_summary' %}" class="btn dark">⬅ Back</a>
+</div>
+
+<!-- ================= MEMBERSHIPS ================= -->
+<div class="card">
+  <table class="table">
+    <tr>
+      <th>Customer</th>
+      <th>Plan</th>
+      <th>Total Hours</th>
+      <th>Used</th>
+      <th>Remaining</th>
+      <th>Weekend</th>
+      <th>Expires</th>
+      <th>Status</th>
+    </tr>
+
+    {% for m in memberships %}
+    <tr>
+      <td>{{ m.customer.name }}<br><small>{{ m.customer.email }}</small></td>
+      <td>{{ m.plan.name }}</td>
+
+      <td>{{ m.plan.total_hours }} hr</td>
+
+      <td>
+        {{ m.plan.total_hours|floatformat:1|add:"-"|add:m.hours_remaining|floatformat:1 }} hr
+      </td>
+
+      <td>{{ m.hours_remaining|floatformat:1 }} hr</td>
+
+      <td>
+        {% if m.weekend_access %}
+          ✅ Yes
+        {% else %}
+          ❌ No
+        {% endif %}
+      </td>
+
+      <td>{{ m.expires_at|date:"d M Y" }}</td>
+
+      <td>
+        {% if m.is_active %}
+          <span class="tag green">ACTIVE</span>
+        {% else %}
+          <span class="tag red">EXPIRED</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="8">No memberships found</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+</body>
+</html>
